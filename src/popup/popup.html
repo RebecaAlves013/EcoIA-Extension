@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Green AI Monitor</title>
+
+    <link rel="stylesheet" href="popup.css">
+</head>
+
+<body>
+
+    <div class="container">
+
+        <h1>🌱 Green AI Monitor</h1>
+
+        <p class="subtitle">
+            Monitoramento do impacto ambiental
+        </p>
+
+        <div class="card">
+
+            <span class="label">
+                Atividade atual
+            </span>
+
+            <h2 id="categoria">
+                Carregando...
+            </h2>
+
+            <p id="dominio">
+                --
+            </p>
+
+        </div>
+
+        <div class="metrics">
+
+            <div class="metric">
+                <span>⚡</span>
+                <strong id="energia">0 Wh</strong>
+                <small>Energia estimada</small>
+            </div>
+
+            <div class="metric">
+                <span>💧</span>
+                <strong id="agua">0 mL</strong>
+                <small>Água estimada</small>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script src="popup.js"></script>
+
+</body>
+
+</html>
