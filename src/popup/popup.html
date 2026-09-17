@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 
@@ -12,49 +13,53 @@
 
 <body>
 
-    <div class="container">
+    <h1>Green AI Monitor</h1>
 
-        <h1>🌱 Green AI Monitor</h1>
+    <section class="status-card">
+        <h2>Serviço atual</h2>
+        <p id="service">Identificando...</p>
+    </section>
 
-        <p class="subtitle">
-            Monitoramento do impacto ambiental
-        </p>
+    <section class="metric-card">
+        <h2>Interações</h2>
+        <p id="interactions">0</p>
+    </section>
 
-        <div class="card">
+    <section class="metric-card">
+        <h2>Cenário</h2>
 
-            <span class="label">
-                Atividade atual
-            </span>
+        <select id="scenario">
+            <option value="low">Baixo</option>
+            <option value="central" selected>Central</option>
+            <option value="high">Alto</option>
+        </select>
+    </section>
 
-            <h2 id="categoria">
-                Carregando...
-            </h2>
+    <section class="metric-card">
+        <h2>Energia estimada</h2>
+        <p id="energy">-- Wh</p>
+    </section>
 
-            <p id="dominio">
-                --
-            </p>
+    <section class="metric-card">
+        <h2>Água estimada</h2>
+        <p id="water">-- mL</p>
+    </section>
 
-        </div>
+    <section class="metric-card">
+        <h2>Tempo de navegação web</h2>
+        <p id="webTime">0 segundos</p>
+    </section>
 
-        <div class="metrics">
+    
+    <section class="metric-card">
+        <h2>Dados transferidos observados</h2>
+        <p id="webData">0 KB</p>
+        <small id="webDataDetails">
+            Aguardando dados...
+        </small>
+    </section>
 
-            <div class="metric">
-                <span>⚡</span>
-                <strong id="energia">0 Wh</strong>
-                <small>Energia estimada</small>
-            </div>
-
-            <div class="metric">
-                <span>💧</span>
-                <strong id="agua">0 mL</strong>
-                <small>Água estimada</small>
-            </div>
-
-        </div>
-
-    </div>
-
-    <script src="popup.js"></script>
+    <script type="module" src="popup.js"></script>
 
 </body>
 

@@ -1,20 +1,46 @@
 {
-  "manifest_version": 3,
-  "name": "Green AI Monitor",
-  "version": "1.0.0",
-  "description": "Estima o impacto ambiental associado ao uso de IA e à navegação na Web.",
-  "permissions": [
-    "tabs",
-    "storage"
-  ],
-  "host_permissions": [
-    "<all_urls>"
-  ],
-  "action": {
-    "default_popup": "popup.html",
-    "default_title": "Green AI Monitor"
-  },
-  "background": {
-    "service_worker": "background.js"
-  }
+    "manifest_version": 3,
+    "name": "Green AI Monitor",
+    "version": "1.0.0",
+    "description": "Estimativa do consumo de energia e água associado ao uso de ferramentas de inteligência artificial e navegação web.",
+
+    "permissions": [
+        "storage",
+        "tabs"
+    ],
+
+    "host_permissions": [
+        "<all_urls>"
+    ],
+
+    "background": {
+        "service_worker": "src/background/background.js"
+    },
+
+    "action": {
+        "default_popup": "src/popup/popup.html",
+        "default_title": "Green AI Monitor"
+    },
+
+    "content_scripts": [
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "js": [
+                "src/content/content.js"
+            ]
+        }
+    ],
+
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "data/parameters.json"
+            ],
+            "matches": [
+                "<all_urls>"
+            ]
+        }
+    ]
 }
