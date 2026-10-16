@@ -1,44 +1,57 @@
+
 {
-    "ai": {
-        "energy": {
-            "unit": "Wh/query",
-
-            "scenarios": {
-                "low": 0.16,
-                "central": 0.31,
-                "high": 0.60
-            },
-
-            "source": {
-                "authors": "Oviedo et al.",
-                "year": 2026,
-                "title": "Energy use of AI inference, efficiency pathways, and test-time scaling",
-                "doi": "10.1016/j.joule.2026.102430"
-            },
-
-            "context": "Frontier-scale inference with models above 200 billion parameters, estimated under production-scale serving conditions using H100 nodes.",
-
-            "limitation": "The value is not universal. Energy depends on model, hardware, token length, serving architecture, utilization and data-center conditions."
-        },
-
-        "water": {
-            "unit": "mL",
-
-            "reference": {
-                "value": 0.26,
-                "unit": "mL/query"
-            },
-
-            "source": {
-                "authors": "Elsworth et al.",
-                "year": 2025,
-                "title": "Measuring the environmental impact of delivering AI at Google Scale",
-                "doi": "10.48550/arXiv.2508.15734"
-            },
-
-            "context": "Median water consumption reported for a Gemini Apps text prompt in Google's production environment.",
-
-            "limitation": "This is an empirical value specific to Google's infrastructure and measurement methodology and should not be treated as universal."
-        }
+  "ai": {
+    "energy": {
+      "unit": "Wh/query",
+      "scenarios": {
+        "low": 0.16,
+        "central": 0.31,
+        "high": 0.60
+      },
+      "source": {
+        "authors": "Oviedo et al.",
+        "year": 2026,
+        "title": "Energy use of AI inference: efficiency pathways and test-time scaling",
+        "doi": "10.1016/j.joule.2026.102430"
+      },
+      "context": "Referência para inferência de modelos de grande escala em condições de serviço específicas.",
+      "limitation": "Não representa todas as IAs, consultas ou infraestruturas."
+    },
+    "water": {
+      "unit": "mL/query",
+      "reference": {
+        "value": 0.26,
+        "unit": "mL/query"
+      },
+      "source": {
+        "authors": "Elsworth et al.",
+        "year": 2025,
+        "title": "Measuring the environmental impact of delivering AI at Google Scale",
+        "doi": "10.48550/arXiv.2508.15734"
+      },
+      "limitation": "Referência empírica específica do ambiente e método analisados pelo Google."
     }
+  },
+  "web": {
+    "energy": {
+      "unit": "Wh/GB",
+      "scenarios": {
+        "low": 1.1,
+        "central": 1.8,
+        "high": 2.4
+      },
+      "source": {
+        "authors": "Guennebaud e Bugeau",
+        "year": 2024,
+        "title": "Energy consumption of data transfer: intensity indicators versus absolute estimates",
+        "doi": "10.1111/jiec.13513"
+      },
+      "context": "Valores experimentais de referência para implementar e testar cenários de intensidade energética de transferência de dados.",
+      "limitation": "Não são percentis universais. O resultado depende da infraestrutura, rota, tecnologia de acesso, limites do sistema e contexto do estudo. Validar os valores e sua aplicabilidade antes de apresentá-los como parâmetros definitivos do TCC."
+    },
+    "water": {
+      "available": false,
+      "reason": "Ainda não foi definido um fator hídrico adequado para a transferência web observada."
+    }
+  }
 }
