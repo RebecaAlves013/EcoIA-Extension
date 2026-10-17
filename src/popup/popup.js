@@ -14,6 +14,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const scenarioSelect = document.getElementById("scenario");
     const energyElement = document.getElementById("energy");
     const waterElement = document.getElementById("water");
+    const webEnergyElement = document.getElementById("webEnergy");
     const webResult = await chrome.storage.local.get(["webVisits"]);
     const webVisits = webResult.webVisits || [];
     
@@ -96,6 +97,17 @@ document.addEventListener("DOMContentLoaded", async () => {
                 energyPerInteraction
             );
 
+            // Energia estimada da navegação web, em Wh.
+            // A conversão usa GB decimal: 1 GB = 1.000.000.000 bytes.
+            const webEnergyPerGB =
+                parameters.web.energy.scenarios[scenario];
+
+            const webEnergy =
+                (totalBytes / 1_000_000_000) * webEnergyPerGB;
+
+            webEnergyElement.textContent =
+                `${formatEnergy(webEnergy)} Wh`;
+
             energyElement.textContent =
                 `${formatEnergy(energy)} Wh`;
 
@@ -118,6 +130,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         energyElement.textContent = "Erro ao calcular";
         waterElement.textContent = "Erro ao calcular";
+        webEnergyElement.textContent = "Erro ao calcular";
     }
 });
 
