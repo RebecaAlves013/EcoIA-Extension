@@ -152,35 +152,75 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     
-    if (message.type === "WEB_TRANSFER") {
-        chrome.storage.local.get(["webTransfer"], (result) => {
-            const registros = result.webTransfer || [];
+   if (message.type === "WEB_TRANSFER") {
+    const pageId = message.pageId;
 
-            registros.push({
-                tabId: sender.tab?.id ?? null,
-                domain: message.domain,
-                timestamp: message.timestamp,
-                bytes: message.bytes,
-                resources: message.resources,
-                zeroSizeResources: message.zeroSizeResources
-            });
+    if (!pageId || typeof pageId !== "string") {
+        sendResponse({
+            success: false,
+            error: "pageId inválido"
+        });
+        return;
+    }
 
-            chrome.storage.local.set(
-                { webTransfer: registros },
-                () => {
-                    console.log(
-                        "Resumo WEB salvo:",
-                        message.bytes,
-                        "bytes"
+    chrome.storage.local.get(["webTransfer"], (result) => {
+        const registros = result.webTransfer || [];
+
+        const novoRegistro = {
+            pageId,
+            domain: message.domain,
+            timestamp: message.timestamp,
+            bytes: Math.max(0, Number(message.bytes) || 0),
+            resources: Math.max(0, Number(message.resources) || 0),
+            zeroSizeResources: Math.max(
+                0,
+                Number(message.zeroSizeResources) || 0
+            )
+        };
+
+        const indice = registros.findIndex(
+            registro => registro.pageId === pageId
+        );
+
+        if (indice >= 0) {
+            // Atualiza o resumo já existente desta página.
+            registros[indice] = novoRegistro;
+        } else {
+            // Cria o registro apenas na primeira atualização.
+            registros.push(novoRegistro);
+        }
+
+        chrome.storage.local.set(
+            { webTransfer: registros },
+            () => {
+                if (chrome.runtime.lastError) {
+                    console.error(
+                        "Erro ao salvar resumo WEB:",
+                        chrome.runtime.lastError.message
                     );
 
-                    sendResponse({ success: true });
+                    sendResponse({
+                        success: false
+                    });
+                    return;
                 }
-            );
-        });
 
-        return true;
-    }
+                console.log(
+                    "Resumo WEB atualizado:",
+                    novoRegistro.bytes,
+                    "bytes; recursos:",
+                    novoRegistro.resources
+                );
+
+                sendResponse({
+                    success: true
+                });
+            }
+        );
+    });
+
+    return true;
+}
 });
 
 // Inicia a contagem da aba ativa quando o service worker é instalado

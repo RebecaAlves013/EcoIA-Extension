@@ -16,8 +16,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     const waterElement = document.getElementById("water");
     const webResult = await chrome.storage.local.get(["webVisits"]);
     const webVisits = webResult.webVisits || [];
+    
     const transferResult = await chrome.storage.local.get(["webTransfer"]);
-    const transferRecords = transferResult.webTransfer || [];
+
+    const transferRecords = (transferResult.webTransfer || []).filter(
+        record => typeof record.pageId === "string"
+    );
 
     const totalBytes = transferRecords.reduce(
         (total, record) => total + (Number(record.bytes) || 0),

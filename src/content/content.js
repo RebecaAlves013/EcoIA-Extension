@@ -156,6 +156,7 @@ if (tipo === "IA") {
 }
 
 
+
 /*
  * Green AI Monitor
  * Coleta experimental de tamanhos de recursos
@@ -163,24 +164,30 @@ if (tipo === "IA") {
  */
 
 if (tipo === "WEB") {
+    // Identifica esta instância da página sem guardar a URL completa.
+    const pageId =
+        `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    const recursosProcessados = new Set();
+
     let bytesColetados = 0;
     let recursosObservados = 0;
     let recursosSemTamanho = 0;
 
-    const recursosProcessados = new Set();
+    let envioAgendado = false;
 
     console.log("Monitoramento de transferência WEB iniciado.");
 
     function registrarDadosTransferidos(entry) {
-        // Ignora entradas sem URL válida
         if (!entry.name) return;
 
-        // Evita processar a mesma entrada duas vezes
+        // A URL completa é usada somente localmente para deduplicar.
+        // Ela não é enviada nem armazenada pela extensão.
         const chave = `${entry.name}|${entry.startTime}`;
 
         if (recursosProcessados.has(chave)) return;
-        recursosProcessados.add(chave);
 
+        recursosProcessados.add(chave);
         recursosObservados++;
 
         const bytes = Number(entry.transferSize) || 0;
@@ -190,20 +197,16 @@ if (tipo === "WEB") {
         } else {
             recursosSemTamanho++;
         }
-
-        console.log("Recurso observado:", {
-            tamanhoBytes: bytes,
-            totalBytesColetados: bytesColetados,
-            recursosObservados,
-            recursosSemTamanho
-        });
     }
 
     function enviarResumo() {
+        envioAgendado = false;
+
         if (recursosObservados === 0) return;
 
         chrome.runtime.sendMessage({
             type: "WEB_TRANSFER",
+            pageId,
             domain: host,
             timestamp: new Date().toISOString(),
             bytes: bytesColetados,
@@ -211,24 +214,29 @@ if (tipo === "WEB") {
             zeroSizeResources: recursosSemTamanho
         }, () => {
             if (chrome.runtime.lastError) {
-                console.error(
-                    "Erro ao enviar dados WEB:",
+                console.warn(
+                    "Não foi possível enviar o resumo WEB:",
                     chrome.runtime.lastError.message
                 );
-                return;
             }
-
-            console.log("Resumo de transferência enviado.");
         });
     }
 
-    // Observa novos recursos carregados
+    function agendarEnvio() {
+        if (envioAgendado) return;
+
+        envioAgendado = true;
+
+        // Agrupa várias entradas antes de atualizar o armazenamento.
+        setTimeout(enviarResumo, 1000);
+    }
+
     const observer = new PerformanceObserver((list) => {
         for (const entry of list.getEntries()) {
             registrarDadosTransferidos(entry);
         }
 
-        enviarResumo();
+        agendarEnvio();
     });
 
     observer.observe({
@@ -236,9 +244,8 @@ if (tipo === "WEB") {
         buffered: true
     });
 
-    // Permite observar mais recursos em páginas extensas
     performance.setResourceTimingBufferSize(2000);
 
-    // Envia um resumo ao sair da página
+    // Tenta enviar o resumo final ao sair da página.
     window.addEventListener("pagehide", enviarResumo);
 }
