@@ -534,6 +534,8 @@ test("popup identifica os serviços de IA e páginas web", async () => {
   assert.equal(context.identifyService("https://gemini.google.com/"), "IA — Gemini");
   assert.equal(context.identifyService("https://claude.ai/"), "IA — Claude");
   assert.equal(context.identifyService("https://copilot.microsoft.com/"), "IA — Copilot");
+  assert.equal(context.identifyService("https://copilot.cloud.microsoft/chat/conversation/abc"), "IA — Copilot");
+  assert.equal(context.identifyService("https://m365.cloud.microsoft/"), "IA — Copilot");
   assert.equal(context.identifyService("https://www.perplexity.ai/"), "IA — Perplexity");
   assert.equal(context.identifyService("https://example.com/"), "WEB");
   assert.equal(context.identifyService(""), "Página desconhecida");
