@@ -176,7 +176,7 @@ function identifyService(url) {
         return "IA — Claude";
     }
 
-    if (url.includes("copilot.microsoft.com")) {
+    if (url.includes("copilot.microsoft.com") || url.includes("copilot.cloud.microsoft") || url.includes("m365.cloud.microsoft")) {
         return "IA — Copilot";
     }
 
