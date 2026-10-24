@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>EcoIA Teste Automatizado</title></head>
+<body>
+  <h1>Simulador local do ChatGPT</h1>
+  <div id="prompt-textarea" contenteditable="true" aria-label="Pergunte ao ChatGPT"></div>
+  <button id="send" aria-label="Enviar">Enviar</button>
+  <script>
+    document.getElementById("send").addEventListener("click", () => {
+      document.getElementById("prompt-textarea").textContent = "";
+    });
+    document.getElementById("prompt-textarea").addEventListener("keydown", event => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        event.currentTarget.textContent = "";
+      }
+    });
+  </script>
+</body>
+</html>
