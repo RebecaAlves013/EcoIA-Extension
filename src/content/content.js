@@ -74,12 +74,14 @@ if (tipo === "IA") {
     }
 
     function obterCampoChatGPT() {
-        return document.querySelector(
-            '#prompt-textarea, ' +
-            'textarea[data-testid*="prompt"], ' +
-            '[contenteditable="true"][data-testid*="prompt"]'
-        );
-    }
+    return document.querySelector(
+        '#prompt-textarea, ' +
+        'textarea[data-testid*="prompt"], ' +
+        '[contenteditable="true"][data-testid*="prompt"], ' +
+        '[contenteditable="true"][aria-label="Pergunte ao ChatGPT"], ' +
+        '[contenteditable="true"].ProseMirror'
+    );
+}
 
     if (servico === "ChatGPT") {
         // Detecta Enter no campo de mensagem
@@ -111,7 +113,8 @@ if (tipo === "IA") {
             const botao = alvo.closest(
                 'button[data-testid="send-button"], ' +
                 'button[aria-label="Send prompt"], ' +
-                'button[aria-label="Enviar prompt"]'
+                'button[aria-label="Enviar prompt"], ' +
+                'button[aria-label="Enviar"]'
             );
 
             if (!botao) return;
