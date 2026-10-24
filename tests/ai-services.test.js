@@ -12,6 +12,7 @@ const providers = [
   { host: "gemini.google.com", service: "Gemini" },
   { host: "claude.ai", service: "Claude" },
   { host: "copilot.microsoft.com", service: "Copilot" },
+  { host: "copilot.cloud.microsoft", service: "Copilot" },
   { host: "perplexity.ai", service: "Perplexity" }
 ];
 
@@ -224,6 +225,8 @@ test("ChatGPT: reconhece o composer textarea da interface móvel", () => {
   assert.ok(source.includes('textarea[aria-label="Chat com o ChatGPT"]'));
 });
 
-test("Copilot: reconhece o domínio de redirecionamento M365", () => {
+test("Copilot: reconhece os domínios atuais e anteriores", () => {
+  assert.ok(source.includes('host === "copilot.cloud.microsoft"'));
+  assert.ok(source.includes('host === "copilot.microsoft.com"'));
   assert.ok(source.includes('host === "m365.cloud.microsoft"'));
 });
