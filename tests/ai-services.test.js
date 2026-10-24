@@ -15,9 +15,10 @@ const providers = [
   { host: "perplexity.ai", service: "Perplexity" }
 ];
 
-function createHarness(host) {
+function createHarness(host, sendMessageMode = "ok") {
   const handlers = {};
   const sentMessages = [];
+  const warnings = [];
   let now = 10_000;
 
   class FakeDate extends Date {
@@ -62,7 +63,16 @@ function createHarness(host) {
     runtime: {
       lastError: null,
       sendMessage(message, callback) {
+        if (sendMessageMode === "throw") {
+          throw new Error("Extension context invalidated.");
+        }
         sentMessages.push(message);
+        if (sendMessageMode === "lastError") {
+          this.lastError = { message: "Extension context invalidated." };
+          callback?.();
+          this.lastError = null;
+          return;
+        }
         callback?.();
       }
     }
@@ -72,7 +82,7 @@ function createHarness(host) {
     window: { location: { hostname: host, search: "" }, addEventListener() {} },
     document,
     chrome,
-    console: { log() {}, error() {}, warn() {} },
+    console: { log() {}, error() {}, warn(...args) { warnings.push(args); } },
     Element,
     HTMLFormElement: FakeForm,
     URL,
@@ -91,6 +101,7 @@ function createHarness(host) {
   return {
     fire,
     sentMessages,
+    warnings,
     field,
     button,
     FakeForm,
@@ -157,4 +168,50 @@ test("o detector mantém os listeners específicos do ChatGPT", () => {
   assert.match(source, /document\.addEventListener\("keydown"/);
   assert.match(source, /document\.addEventListener\("click"/);
   assert.match(source, /document\.addEventListener\("submit"/);
+});
+
+
+test("ChatGPT: contexto invalidado não gera exceção não tratada", () => {
+  const h = createHarness("chatgpt.com", "throw");
+
+  assert.doesNotThrow(() => {
+    h.fire("keydown", {
+      key: "Enter",
+      shiftKey: false,
+      target: h.field
+    });
+  });
+
+  assert.equal(h.sentMessages.length, 0);
+  assert.equal(h.warnings.length, 1);
+  assert.match(String(h.warnings[0].join(" ")), /contexto da extensão/i);
+});
+
+test("ChatGPT: lastError retornado pelo Chrome é tratado sem exceção", () => {
+  const h = createHarness("chatgpt.com", "lastError");
+
+  assert.doesNotThrow(() => {
+    h.fire("keydown", {
+      key: "Enter",
+      shiftKey: false,
+      target: h.field
+    });
+  });
+
+  assert.equal(h.sentMessages.length, 1);
+  assert.equal(h.warnings.length, 1);
+  assert.match(String(h.warnings[0].join(" ")), /contexto da extensão/i);
+});
+
+test("ChatGPT: comunicação normal registra envio sem aviso", () => {
+  const h = createHarness("chatgpt.com");
+
+  h.fire("keydown", {
+    key: "Enter",
+    shiftKey: false,
+    target: h.field
+  });
+
+  assert.equal(h.sentMessages.length, 1);
+  assert.equal(h.warnings.length, 0);
 });
