@@ -72,7 +72,7 @@ async function getPageDiagnostics(page, provider, worker) {
         contenteditable: el.getAttribute("contenteditable") || "",
         visible: !!(el.getClientRects().length)
       }))
-  }).catch(error => ({ pageEvaluationError: error.message }));
+  })).catch(error => ({ pageEvaluationError: error.message }));
 
   const interactions = await getInteractions(worker).catch(error => [{ readError: error.message }]);
   return { provider: provider.name, page: pageInfo, interactionCount: interactions.length, latestInteractions: interactions.slice(-3) };
