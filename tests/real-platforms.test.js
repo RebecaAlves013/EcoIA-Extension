@@ -29,12 +29,6 @@ const providers = [
     sendButton: "button[aria-label*='Send' i], button[aria-label*='Enviar' i], button[mattooltip*='Send' i], button[mattooltip*='Enviar' i]"
   },
   {
-    name: "Claude",
-    url: "https://claude.ai/new",
-    composer: "div[contenteditable='true'], [role='textbox'], textarea",
-    sendButton: "button[aria-label*='Send' i], button[aria-label*='Enviar' i], button[data-testid*='send']"
-  },
-  {
     name: "Copilot",
     url: "https://copilot.microsoft.com/",
     composer: "textarea, [contenteditable='true'], [role='textbox']",
@@ -162,16 +156,6 @@ test("interfaces reais: registra uma interação em cada uma das cinco IAs", {
         try {
           const before = await getInteractions(worker);
           await page.goto(provider.url, { waitUntil: "domcontentloaded", timeout: 60000 });
-
-          // Não tenta enviar mensagens quando a conta Claude está bloqueada.
-          // Esse estado é da conta, não uma falha de detecção da extensão.
-          if (provider.name === "Claude") {
-            const claudePage = `${page.url()} ${await page.locator("body").innerText().catch(() => "")}`;
-            if (claudePage.includes("/restricted/submit") || /Solicitar uma revisão|conta foi suspensa|account has been suspended/i.test(claudePage)) {
-              subtest.skip("Conta Claude suspensa/restrita; teste real não pode ser executado até a conta ser liberada.");
-              return;
-            }
-          }
 
           const composer = await findVisibleComposer(page, provider.composer);
           const prompt = `Teste de monitoramento EcoIA-Extension. Responda apenas: teste recebido. Código: ${Date.now()}`;
