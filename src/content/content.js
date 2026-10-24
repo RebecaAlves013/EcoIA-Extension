@@ -56,21 +56,34 @@ if (tipo === "IA") {
 
         console.log("Tentando registrar envio:", origem);
 
-        chrome.runtime.sendMessage({
-            type: "AI_INTERACTION",
-            service: servico,
-            timestamp: new Date().toISOString()
-        }, () => {
-            if (chrome.runtime.lastError) {
-                console.error(
-                    "Erro ao registrar:",
-                    chrome.runtime.lastError.message
-                );
-                return;
-            }
+        // Um contexto de extensão pode ser invalidado após atualização.
+        // Capturamos falhas síncronas e erros assíncronos para não gerar
+        // exceções não tratadas no console da página.
+        try {
+            chrome.runtime.sendMessage({
+                type: "AI_INTERACTION",
+                service: servico,
+                timestamp: new Date().toISOString()
+            }, () => {
+                if (chrome.runtime.lastError) {
+                    console.warn(
+                        "Não foi possível registrar a interação. " +
+                        "O contexto da extensão pode ter sido invalidado:",
+                        chrome.runtime.lastError.message
+                    );
+                    return;
+                }
 
-            console.log("Interação enviada ao background.");
-        });
+                console.log("Interação enviada ao background.");
+            });
+        } catch (erro) {
+            console.warn(
+                "Falha ao comunicar com a extensão. " +
+                "A interação não foi registrada; atualize a página somente " +
+                "se a extensão tiver sido atualizada ou recarregada.",
+                erro?.message || erro
+            );
+        }
     }
 
     function campoTemTexto(campo) {
