@@ -1,0 +1,9 @@
+# Dependências
+node_modules/
+
+# Perfil local do Playwright para testes autenticados nas interfaces reais
+.playwright-real-profile/
+
+# Arquivos locais e logs
+.DS_Store
+*.log
