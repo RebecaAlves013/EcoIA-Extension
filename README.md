@@ -117,7 +117,13 @@ EcoIA-Extension/
 │   │   └── popup.js
 │   └── services/
 │       └── parameters.js
+├── tests/
+│   ├── fixtures/
+│   │   └── chatgpt.html
+│   ├── ecoia.test.js
+│   └── e2e.test.js
 ├── manifest.json
+├── package.json
 └── README.md
 ```
 
@@ -193,9 +199,26 @@ As referências abaixo correspondem aos metadados atualmente registrados em `dat
 
 ## Estado do projeto
 
-O repositório contém um protótipo em desenvolvimento para registro de interações com IA, acompanhamento de atividade web e cálculo de estimativas com parâmetros configuráveis.
+O EcoIA-Extension é um protótipo de extensão para navegadores baseados em Chromium, desenvolvido para registrar interações com ferramentas de Inteligência Artificial, observar dados de transferência durante a navegação web e apresentar estimativas experimentais de consumo de energia e água.
 
-A implementação e as fórmulas descritas devem passar por testes funcionais e validação bibliográfica antes de serem consideradas resultados consolidados.
+O projeto conta com testes automatizados unitários e de ponta a ponta (E2E), executados por meio dos comandos disponíveis no `package.json`. Na execução registrada durante o desenvolvimento, **14 testes foram aprovados, sem falhas ou testes ignorados**.
+
+Os testes verificam funcionalidades como o registro de interações, a prevenção de registros duplicados nos cenários contemplados, os cálculos estimados, a persistência dos dados, a apresentação dos indicadores e o funcionamento do modo de simulação.
+
+A aprovação dos testes demonstra o comportamento esperado nos cenários automatizados, mas não comprova a medição real do consumo energético ou hídrico das infraestruturas utilizadas. A compatibilidade com mudanças nas interfaces dos serviços, a cobertura da coleta de dados e a validade dos parâmetros bibliográficos continuam sendo aspectos importantes para avaliação.
+
+O projeto permanece sujeito a melhorias, validação das referências utilizadas e testes complementares em condições de uso real.
+
+### Executar os testes
+
+É necessário ter o Node.js e o npm instalados. Na pasta do projeto, execute:
+
+```bash
+npm install
+npm run test:all
+```
+
+O comando `npm run test:all` executa os testes unitários e os testes de ponta a ponta configurados no projeto. Os testes E2E utilizam Playwright e Chromium; a execução pode depender da disponibilidade e da configuração do navegador no ambiente de teste.
 
 ## Licença
 
