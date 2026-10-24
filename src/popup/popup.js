@@ -15,6 +15,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     const energyElement = document.getElementById("energy");
     const waterElement = document.getElementById("water");
     const webEnergyElement = document.getElementById("webEnergy");
+    const simulationToggle = document.getElementById("simulationToggle");
+    const simulationStatus = document.getElementById("simulationStatus");
     const webResult = await chrome.storage.local.get(["webVisits"]);
     const webVisits = webResult.webVisits || [];
     
@@ -64,7 +66,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         const result = await chrome.storage.local.get(["interactions"]);
         const interactions = result.interactions || [];
 
-        interactionsElement.textContent = interactions.length;
+        let simulated = false;
+        const realInteractionCount = interactions.length;
+        interactionsElement.textContent = realInteractionCount;
 
         // Identifica o serviço da aba atual
         const tabs = await chrome.tabs.query({
@@ -92,8 +96,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                 parameters.ai.energy.scenarios[scenario];
 
             // Energia estimada em Wh
+            const interactionCount = simulated ? 100 : realInteractionCount;
             const energy = calculateEnergy(
-                interactions.length,
+                interactionCount,
                 energyPerInteraction
             );
 
@@ -117,6 +122,18 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             waterElement.textContent =
                 `${Number(water.toFixed(4))} mL`;
+            interactionsElement.textContent = interactionCount;
+            serviceElement.textContent = simulated
+                ? "SIMULAÇÃO — ChatGPT"
+                : (tabs.length === 0 || !tabs[0].url
+                    ? "Página desconhecida"
+                    : identifyService(tabs[0].url));
+            simulationStatus.textContent = simulated
+                ? "Modo de demonstração ativo. Dados reais preservados."
+                : "Dados reais da extensão.";
+            simulationToggle.textContent = simulated
+                ? "Voltar aos dados reais"
+                : "Simular 100 interações";
         }
 
         // Atualiza ao abrir o popup
@@ -124,6 +141,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         // Atualiza energia ao trocar o cenário
         scenarioSelect.addEventListener("change", updateEstimates);
+
+        simulationToggle.addEventListener("click", () => {
+            simulated = !simulated;
+            updateEstimates();
+        });
 
     } catch (error) {
         console.error("Erro ao carregar as estimativas:", error);
