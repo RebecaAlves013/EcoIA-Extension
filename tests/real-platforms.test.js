@@ -8,7 +8,7 @@ import { chromium } from "playwright";
  * Testes opt-in nas interfaces públicas reais.
  * Execute no CMD: set ECOIA_REAL_TESTS=1 && npm run test:real
  * Usa perfil persistente para reaproveitar logins. Nunca armazene credenciais.
- * Cada plataforma recebe uma única mensagem de teste.
+ * Cada plataforma habilitada recebe uma única mensagem de teste; Claude está temporariamente fora da suíte real.
  */
 const enabled = process.env.ECOIA_REAL_TESTS === "1";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -127,7 +127,7 @@ async function sendTestPrompt(page, provider, composer, prompt) {
   return "Enter (fallback)";
 }
 
-test("interfaces reais: registra uma interação em cada uma das cinco IAs", {
+test("interfaces reais: registra uma interação em cada uma das quatro IAs habilitadas", {
   skip: !enabled && "Teste opt-in: use set ECOIA_REAL_TESTS=1 && npm run test:real",
   timeout: 20 * 60 * 1000
 }, async t => {
