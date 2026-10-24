@@ -118,7 +118,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             // Água estimada em mL
             const water =
-                interactions.length * waterPerInteraction;
+                interactionCount * waterPerInteraction;
 
             waterElement.textContent =
                 `${Number(water.toFixed(4))} mL`;
