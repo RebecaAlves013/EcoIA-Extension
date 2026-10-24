@@ -441,3 +441,102 @@ test("content script não envia resumo web quando não observou recursos", async
   timers.shift()();
   assert.equal(sentMessages.length, 0);
 });
+
+
+test("popup trata armazenamento vazio, aba sem URL e tempo de navegação", async () => {
+  let onReady;
+  const elements = new Map();
+  const getElementById = (id) => {
+    if (!elements.has(id)) {
+      elements.set(id, {
+        id,
+        textContent: "",
+        value: id === "scenario" ? "central" : "",
+        listeners: {},
+        addEventListener(type, fn) { this.listeners[type] = fn; }
+      });
+    }
+    return elements.get(id);
+  };
+
+  const chrome = {
+    storage: {
+      local: {
+        get: async (keys) => {
+          const result = {};
+          for (const key of keys) {
+            result[key] = key === "interactions" ? [] :
+              key === "webVisits" ? [
+                { durationSeconds: 65 },
+                { durationSeconds: 60 }
+              ] :
+              key === "webTransfer" ? [
+                { pageId: "valid-page", bytes: 0, resources: 2, zeroSizeResources: 2 },
+                { bytes: 999999, resources: 50, zeroSizeResources: 0 }
+              ] : undefined;
+          }
+          return result;
+        }
+      }
+    },
+    tabs: { query: async () => [] }
+  };
+
+  const parameters = {
+    ai: {
+      energy: { scenarios: { low: 0.16, central: 0.31, high: 0.6 } },
+      water: { reference: { value: 0.26 } }
+    },
+    web: { energy: { scenarios: { low: 1.1, central: 1.8, high: 2.4 } } }
+  };
+
+  let source = await read("../src/popup/popup.js");
+  source = source
+    .replace(/import\\s*\\{[\\s\\S]*?\\}\\s*from\\s*"\\.\\.\\/calculations\\/energy\\.js";\\s*/, "")
+    .replace(/import\\s*\\{[\\s\\S]*?\\}\\s*from\\s*"\\.\\.\\/services\\/parameters\\.js";\\s*/, "");
+
+  const document = {
+    addEventListener(type, fn) { if (type === "DOMContentLoaded") onReady = fn; },
+    getElementById
+  };
+
+  vm.runInNewContext(source, {
+    document,
+    chrome,
+    console,
+    calculateEnergy: (n, factor) => n * factor,
+    formatEnergy: (value) => Number(value.toFixed(4)),
+    loadParameters: async () => parameters,
+    Number,
+    Math
+  });
+
+  await onReady();
+
+  assert.equal(getElementById("service").textContent, "Página desconhecida");
+  assert.equal(getElementById("interactions").textContent, 0);
+  assert.equal(getElementById("energy").textContent, "0 Wh");
+  assert.equal(getElementById("water").textContent, "0 mL");
+  assert.equal(getElementById("webTime").textContent, "2 min 5 s");
+  assert.equal(getElementById("webData").textContent, "0.00 KB");
+  assert.equal(getElementById("webDataDetails").textContent, "2 recursos observados; 2 com tamanho zero.");
+  assert.equal(getElementById("webEnergy").textContent, "0 Wh");
+});
+
+test("popup identifica os serviços de IA e páginas web", async () => {
+  const source = await read("../src/popup/popup.js");
+  const match = source.match(/function identifyService\\(url\\) \\{[\\s\\S]*?\\n\\}/);
+  assert.ok(match, "a função identifyService deve existir");
+
+  const context = { };
+  vm.runInNewContext(match[0] + "\\nthis.identifyService = identifyService;", context);
+
+  assert.equal(context.identifyService("https://chatgpt.com/"), "IA — ChatGPT");
+  assert.equal(context.identifyService("https://chat.openai.com/"), "IA — ChatGPT");
+  assert.equal(context.identifyService("https://gemini.google.com/"), "IA — Gemini");
+  assert.equal(context.identifyService("https://claude.ai/"), "IA — Claude");
+  assert.equal(context.identifyService("https://copilot.microsoft.com/"), "IA — Copilot");
+  assert.equal(context.identifyService("https://www.perplexity.ai/"), "IA — Perplexity");
+  assert.equal(context.identifyService("https://example.com/"), "WEB");
+  assert.equal(context.identifyService(""), "Página desconhecida");
+});
