@@ -69,7 +69,97 @@ test("background salva cada mensagem AI_INTERACTION sem apagar registros anterio
   assert.equal(store.interactions.slice(1).every((item) => item.service === "ChatGPT"), true);
 });
 
-test("popup exibe contador e estima energia e água a partir dos registros armazenados", async () => {
+test("background atualiza o resumo de transferência sem duplicar a mesma página", async () => {
+  const source = await read("../src/background/background.js");
+  const listeners = {};
+  const store = { webTransfer: [] };
+
+  const chrome = {
+    runtime: {
+      lastError: null,
+      onMessage: { addListener: (fn) => { listeners.message = fn; } },
+      onStartup: { addListener() {} },
+      onInstalled: { addListener() {} }
+    },
+    tabs: {
+      onActivated: { addListener() {} },
+      onUpdated: { addListener() {} },
+      query: async () => [],
+      get: async () => null
+    },
+    windows: { onFocusChanged: { addListener() {} },
+    },
+    storage: {
+      local: {
+        get: (key, callback) => callback({ [key]: store[key] }),
+        set: (data, callback) => { Object.assign(store, data); callback?.(); },
+        remove: async (key) => { delete store[key]; }
+      }
+    }
+  };
+
+  vm.runInNewContext(source, {
+    chrome,
+    console: { log() {}, warn() {}, error() {} },
+    URL,
+    Date
+  });
+
+  const send = (message) => new Promise((resolve, reject) => {
+    const keepChannelOpen = listeners.message(message, {}, (response) => {
+      try {
+        assert.equal(response.success, true);
+        resolve();
+      } catch (error) { reject(error); }
+    });
+    assert.equal(keepChannelOpen, true);
+  });
+
+  await send({
+    type: "WEB_TRANSFER",
+    pageId: "page-1",
+    domain: "exemplo.com",
+    timestamp: "t1",
+    bytes: 1000,
+    resources: 4,
+    zeroSizeResources: 1
+  });
+
+  await send({
+    type: "WEB_TRANSFER",
+    pageId: "page-1",
+    domain: "exemplo.com",
+    timestamp: "t2",
+    bytes: 2500,
+    resources: 7,
+    zeroSizeResources: 2
+  });
+
+  await send({
+    type: "WEB_TRANSFER",
+    pageId: "page-2",
+    domain: "outro.com",
+    timestamp: "t3",
+    bytes: 500,
+    resources: 2,
+    zeroSizeResources: 0
+  });
+
+  assert.equal(store.webTransfer.length, 2, "cada página deve ter apenas um resumo");
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(store.webTransfer.find(item => item.pageId === "page-1"))),
+    {
+      pageId: "page-1",
+      domain: "exemplo.com",
+      timestamp: "t2",
+      bytes: 2500,
+      resources: 7,
+      zeroSizeResources: 2
+    }
+  );
+});
+
+test("popup exibe dados transferidos e recalcula estimativas nos três cenários", async () => {
   let onReady;
   const elements = new Map();
   const getElementById = (id) => {
@@ -92,6 +182,15 @@ test("popup exibe contador e estima energia e água a partir dos registros armaz
     { service: "ChatGPT", timestamp: "t4" }
   ];
 
+  const webTransfer = [{
+    pageId: "page-1",
+    domain: "exemplo.com",
+    timestamp: "t1",
+    bytes: 500_000_000,
+    resources: 8,
+    zeroSizeResources: 2
+  }];
+
   const chrome = {
     storage: {
       local: {
@@ -100,7 +199,7 @@ test("popup exibe contador e estima energia e água a partir dos registros armaz
           for (const key of keys) {
             result[key] = key === "interactions" ? interactions :
               key === "webVisits" ? [] :
-              key === "webTransfer" ? [] : undefined;
+              key === "webTransfer" ? webTransfer : undefined;
           }
           return result;
         }
@@ -144,12 +243,20 @@ test("popup exibe contador e estima energia e água a partir dos registros armaz
   assert.equal(Number(getElementById("interactions").textContent), 4);
   assert.equal(getElementById("energy").textContent, "1.24 Wh");
   assert.equal(getElementById("water").textContent, "1.04 mL");
+  assert.equal(getElementById("webData").textContent, "488281.25 KB");
+  assert.equal(getElementById("webDataDetails").textContent, "8 recursos observados; 2 com tamanho zero.");
+  assert.equal(getElementById("webEnergy").textContent, "0.9 Wh");
+
+  getElementById("scenario").value = "low";
+  getElementById("scenario").listeners.change();
+  assert.equal(getElementById("energy").textContent, "0.64 Wh");
+  assert.equal(getElementById("webEnergy").textContent, "0.55 Wh");
 
   getElementById("scenario").value = "high";
   getElementById("scenario").listeners.change();
   assert.equal(getElementById("energy").textContent, "2.4 Wh");
+  assert.equal(getElementById("webEnergy").textContent, "1.2 Wh");
 });
-
 
 test("content script detecta envio simulado no ChatGPT e evita clique duplicado", async () => {
   const source = await read("../src/content/content.js");
@@ -203,12 +310,12 @@ test("content script detecta envio simulado no ChatGPT e evita clique duplicado"
 
   assert.equal(typeof handlers.click, "function");
   handlers.click({ target: botao });
-  handlers.click({ target: botao }); // mesmo envio: deve ser ignorado
+  handlers.click({ target: botao });
   assert.equal(sentMessages.length, 1);
   assert.equal(sentMessages[0].type, "AI_INTERACTION");
   assert.equal(sentMessages[0].service, "ChatGPT");
 
   now += 1500;
-  handlers.click({ target: botao }); // novo envio após a janela ant duplicação
+  handlers.click({ target: botao });
   assert.equal(sentMessages.length, 2);
 });
