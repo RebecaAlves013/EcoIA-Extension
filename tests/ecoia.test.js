@@ -491,9 +491,7 @@ test("popup trata armazenamento vazio, aba sem URL e tempo de navegação", asyn
   };
 
   let source = await read("../src/popup/popup.js");
-  source = source
-    .replace(/import\\s*\\{[\\s\\S]*?\\}\\s*from\\s*"\\.\\.\\/calculations\\/energy\\.js";\\s*/, "")
-    .replace(/import\\s*\\{[\\s\\S]*?\\}\\s*from\\s*"\\.\\.\\/services\\/parameters\\.js";\\s*/, "");
+  source = source.replace(/^import[\\s\\S]*?;\\s*/gm, "");
 
   const document = {
     addEventListener(type, fn) { if (type === "DOMContentLoaded") onReady = fn; },
