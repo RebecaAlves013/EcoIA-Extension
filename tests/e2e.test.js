@@ -240,7 +240,7 @@ test("E2E: alterna simulação de 100 interações sem alterar os dados reais", 
     assert.equal(await popup.locator("#interactions").textContent(), "2");
     assert.equal(await popup.locator("#energy").textContent(), "1.2 Wh");
     assert.equal(await popup.locator("#water").textContent(), "0.52 mL");
-    assert.equal(await popup.locator("#service").textContent(), "IA — ChatGPT");
+    assert.equal(await popup.locator("#service").textContent(), "WEB"); // A aba ativa do teste é o servidor local da fixture.
     assert.equal(await popup.locator("#simulationStatus").textContent(), "Dados reais da extensão.");
     assert.equal(await popup.locator("#simulationToggle").textContent(), "Simular 100 interações");
 
