@@ -538,3 +538,48 @@ test("popup identifica os serviços de IA e páginas web", async () => {
   assert.equal(context.identifyService("https://example.com/"), "WEB");
   assert.equal(context.identifyService(""), "Página desconhecida");
 });
+
+test("parâmetros ambientais têm unidades, cenários e fatores válidos", async () => {
+  const parameters = JSON.parse(await read("../data/parameters.json"));
+
+  assert.equal(parameters.ai.energy.unit, "Wh/query");
+  assert.equal(parameters.ai.water.reference.unit, "mL/query");
+  assert.equal(parameters.web.energy.unit, "Wh/GB");
+  assert.equal(parameters.web.water.available, false);
+
+  const aiScenarios = parameters.ai.energy.scenarios;
+  const webScenarios = parameters.web.energy.scenarios;
+
+  for (const scenarios of [aiScenarios, webScenarios]) {
+    assert.ok(Number.isFinite(scenarios.low) && scenarios.low > 0);
+    assert.ok(Number.isFinite(scenarios.central) && scenarios.central > 0);
+    assert.ok(Number.isFinite(scenarios.high) && scenarios.high > 0);
+    assert.ok(scenarios.low < scenarios.central);
+    assert.ok(scenarios.central < scenarios.high);
+  }
+
+  assert.ok(parameters.ai.water.reference.value > 0);
+  assert.ok(parameters.ai.energy.source.doi);
+  assert.ok(parameters.ai.water.source.doi);
+  assert.ok(parameters.web.energy.source.doi);
+});
+
+test("fórmulas de energia e água produzem estimativas proporcionais", () => {
+  const scenarios = [0.16, 0.31, 0.6];
+  for (const factor of scenarios) {
+    assert.equal(calculateEnergy(0, factor), 0);
+    assert.equal(calculateEnergy(10, factor), 10 * factor);
+    assert.equal(calculateEnergy(100, factor), 100 * factor);
+  }
+
+  const waterPerInteraction = 0.26;
+  assert.equal(0 * waterPerInteraction, 0);
+  assert.equal(10 * waterPerInteraction, 2.6);
+  assert.equal(100 * waterPerInteraction, 26);
+
+  // A fórmula web usa bytes / 10^9 para converter para GB decimal.
+  assert.equal((0 / 1_000_000_000) * 1.8, 0);
+  assert.equal((1_000_000_000 / 1_000_000_000) * 1.8, 1.8);
+  assert.equal((500_000_000 / 1_000_000_000) * 1.8, 0.9);
+});
+
