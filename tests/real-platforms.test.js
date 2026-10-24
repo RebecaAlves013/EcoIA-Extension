@@ -1,27 +1,51 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolve } from "node:path";
+import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { dirname } from "node:path";
 import { chromium } from "playwright";
 
 /*
- * Testes opcionais nas interfaces públicas reais.
- * Execute com ECOIA_REAL_TESTS=1 npm run test:real.
- * O teste usa um perfil persistente local para reaproveitar logins.
- * Nunca armazene credenciais no código. Se necessário, faça login manualmente
- * na janela aberta. Cada serviço recebe apenas uma mensagem de teste.
+ * Testes opt-in nas interfaces públicas reais.
+ * Execute no CMD: set ECOIA_REAL_TESTS=1 && npm run test:real
+ * Usa perfil persistente para reaproveitar logins. Nunca armazene credenciais.
+ * Cada plataforma recebe uma única mensagem de teste.
  */
 const enabled = process.env.ECOIA_REAL_TESTS === "1";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const extensionPath = root;
 const profilePath = resolve(root, ".playwright-real-profile");
+
 const providers = [
-  { name: "ChatGPT", url: "https://chatgpt.com/", composer: "#prompt-textarea, textarea, [contenteditable='true'][role='textbox']" },
-  { name: "Gemini", url: "https://gemini.google.com/app", composer: "rich-textarea [contenteditable='true'], textarea, [contenteditable='true'][role='textbox'], [role='textbox']" },
-  { name: "Claude", url: "https://claude.ai/new", composer: "div[contenteditable='true'], [role='textbox'], textarea" },
-  { name: "Copilot", url: "https://copilot.microsoft.com/", composer: "textarea, [contenteditable='true'], [role='textbox']" },
-  { name: "Perplexity", url: "https://www.perplexity.ai/", composer: "textarea, [contenteditable='true'], [role='textbox']" }
+  {
+    name: "ChatGPT",
+    url: "https://chatgpt.com/",
+    composer: "#prompt-textarea, [data-testid*='prompt'] [contenteditable='true'], textarea, [contenteditable='true'][role='textbox']",
+    sendButton: "button[data-testid='send-button'], button[aria-label='Send prompt'], button[aria-label='Enviar prompt'], button[aria-label='Enviar']"
+  },
+  {
+    name: "Gemini",
+    url: "https://gemini.google.com/app",
+    composer: "rich-textarea [contenteditable='true'], rich-textarea textarea, [data-placeholder*='Enter a prompt' i], [role='textbox'], textarea",
+    sendButton: "button[aria-label*='Send' i], button[aria-label*='Enviar' i], button[mattooltip*='Send' i], button[mattooltip*='Enviar' i]"
+  },
+  {
+    name: "Claude",
+    url: "https://claude.ai/new",
+    composer: "div[contenteditable='true'], [role='textbox'], textarea",
+    sendButton: "button[aria-label*='Send' i], button[aria-label*='Enviar' i], button[data-testid*='send']"
+  },
+  {
+    name: "Copilot",
+    url: "https://copilot.microsoft.com/",
+    composer: "textarea, [contenteditable='true'], [role='textbox']",
+    sendButton: "button[aria-label*='Send' i], button[aria-label*='Enviar' i], button[type='submit']"
+  },
+  {
+    name: "Perplexity",
+    url: "https://www.perplexity.ai/",
+    composer: "textarea, [contenteditable='true'], [role='textbox']",
+    sendButton: "button[aria-label*='Submit' i], button[aria-label*='Send' i], button[aria-label*='Enviar' i], button[type='submit']"
+  }
 ];
 
 async function getInteractions(worker) {
@@ -31,22 +55,49 @@ async function getInteractions(worker) {
   });
 }
 
+async function getPageDiagnostics(page, provider, worker) {
+  const pageInfo = await page.evaluate(() => ({
+    url: location.href,
+    title: document.title,
+    readyState: document.readyState,
+    visibleText: (document.body?.innerText || "").slice(0, 1200),
+    inputs: Array.from(document.querySelectorAll("textarea, input, [contenteditable='true'], [role='textbox']"))
+      .slice(0, 20)
+      .map(el => ({
+        tag: el.tagName,
+        id: el.id || "",
+        role: el.getAttribute("role") || "",
+        ariaLabel: el.getAttribute("aria-label") || "",
+        placeholder: el.getAttribute("placeholder") || el.getAttribute("data-placeholder") || "",
+        contenteditable: el.getAttribute("contenteditable") || "",
+        visible: !!(el.getClientRects().length)
+      }))
+  }).catch(error => ({ pageEvaluationError: error.message }));
+
+  const interactions = await getInteractions(worker).catch(error => [{ readError: error.message }]);
+  return { provider: provider.name, page: pageInfo, interactionCount: interactions.length, latestInteractions: interactions.slice(-3) };
+}
+
 async function waitForNewInteraction(worker, previousCount, providerName, timeoutMs = 30000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const interactions = await getInteractions(worker);
     if (interactions.length > previousCount) {
-      const newest = interactions[interactions.length - 1];
-      assert.equal(newest.service, providerName, "o registro deve identificar a IA correta");
+      const added = interactions.slice(previousCount);
+      const matching = added.find(item => item.service === providerName);
+      if (!matching) {
+        throw new Error(`Houve novo registro, mas o serviço não corresponde a ${providerName}. Registros novos: ${JSON.stringify(added)}`);
+      }
       return interactions;
     }
     await new Promise(resolve => setTimeout(resolve, 250));
   }
-  throw new Error(`A extensão não registrou a interação enviada para ${providerName} em ${timeoutMs} ms.`);
+  const interactions = await getInteractions(worker);
+  throw new Error(`A extensão não registrou interação para ${providerName} em ${timeoutMs} ms. Contagem anterior: ${previousCount}; atual: ${interactions.length}; últimos registros: ${JSON.stringify(interactions.slice(-3))}`);
 }
 
-async function findVisibleComposer(page, selector) {
-  const deadline = Date.now() + 120000;
+async function findVisibleComposer(page, selector, timeoutMs = 120000) {
+  const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const candidates = page.locator(selector);
     const count = await candidates.count().catch(() => 0);
@@ -57,28 +108,34 @@ async function findVisibleComposer(page, selector) {
     }
     await page.waitForTimeout(500);
   }
-  throw new Error("Campo de mensagem não encontrado. Verifique login, consentimento inicial ou mudança na interface.");
+  throw new Error("Campo de mensagem não encontrado após 120 segundos.");
 }
 
-async function sendTestPrompt(page, composer, prompt) {
+async function sendTestPrompt(page, provider, composer, prompt) {
   await composer.click();
-  await composer.fill(prompt).catch(async () => {
+  try {
+    await composer.fill(prompt);
+  } catch {
     await composer.press("Control+A");
     await composer.type(prompt);
-  });
+  }
 
-  const sendButton = page.getByRole("button", { name: /send|enviar|submit|ask|perguntar/i }).last();
-  if (await sendButton.isVisible().catch(() => false) &&
+  const sendButton = page.locator(provider.sendButton).last();
+  if (await sendButton.count().catch(() => 0) > 0 &&
+      await sendButton.isVisible().catch(() => false) &&
       await sendButton.isEnabled().catch(() => false)) {
     await sendButton.click();
-    return;
+    return "botão específico";
   }
+
+  // Fallback explícito: Enter só é usado se não houver botão específico visível.
   await composer.press("Enter");
+  return "Enter (fallback)";
 }
 
 test("interfaces reais: registra uma interação em cada uma das cinco IAs", {
-  skip: !enabled && "Teste opt-in: use ECOIA_REAL_TESTS=1 npm run test:real",
-  timeout: 15 * 60 * 1000
+  skip: !enabled && "Teste opt-in: use set ECOIA_REAL_TESTS=1 && npm run test:real",
+  timeout: 20 * 60 * 1000
 }, async t => {
   let context;
   try {
@@ -107,10 +164,22 @@ test("interfaces reais: registra uma interação em cada uma das cinco IAs", {
           await page.goto(provider.url, { waitUntil: "domcontentloaded", timeout: 60000 });
           const composer = await findVisibleComposer(page, provider.composer);
           const prompt = `Teste de monitoramento EcoIA-Extension. Responda apenas: teste recebido. Código: ${Date.now()}`;
-          await sendTestPrompt(page, composer, prompt);
-          const after = await waitForNewInteraction(worker, before.length, provider.name);
-          assert.equal(after.length, before.length + 1,
-            `${provider.name}: deve adicionar exatamente um registro para o envio de teste`);
+          const sendMethod = await sendTestPrompt(page, provider, composer, prompt);
+
+          try {
+            const after = await waitForNewInteraction(worker, before.length, provider.name);
+            assert.equal(after.length, before.length + 1,
+              `${provider.name}: esperado exatamente um registro adicional; método de envio: ${sendMethod}`);
+          } catch (error) {
+            const diagnostics = await getPageDiagnostics(page, provider, worker);
+            throw new Error(`${error.message}\nMétodo de envio: ${sendMethod}\nDiagnóstico: ${JSON.stringify(diagnostics, null, 2)}`);
+          }
+        } catch (error) {
+          if (!error.message.includes("Diagnóstico:")) {
+            const diagnostics = await getPageDiagnostics(page, provider, worker).catch(e => ({ diagnosticError: e.message }));
+            throw new Error(`${error.message}\nDiagnóstico: ${JSON.stringify(diagnostics, null, 2)}`);
+          }
+          throw error;
         } finally {
           await page.close().catch(() => {});
         }
