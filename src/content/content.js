@@ -109,6 +109,8 @@ if (tipo === "IA") {
         'textarea[data-testid*="prompt"], ' +
         '[contenteditable="true"][data-testid*="prompt"], ' +
         '[contenteditable="true"][aria-label="Pergunte ao ChatGPT"], ' +
+        'textarea[aria-label="Chat com o ChatGPT"], ' +
+        'textarea[placeholder*="Pergunte ao ChatGPT"], ' +
         '[contenteditable="true"].ProseMirror'
     );
 }
@@ -162,19 +164,31 @@ if (tipo === "IA") {
         // Seletores genéricos para campos e botões de envio das demais IAs.
         // As interfaces podem variar; os eventos são combinados com a janela
         // anti-duplicação para evitar contar submit + click como dois envios.
-        function obterCampoMensagem() {
-            return document.querySelector(
-                'textarea:not([disabled]), ' +
-                '[contenteditable="true"], ' +
-                'input[type="text"]:not([disabled]), ' +
-                'input:not([type]):not([disabled])'
-            );
+        function campoEditavel(elemento) {
+            return elemento instanceof Element
+                ? elemento.closest('textarea:not([disabled]), [contenteditable="true"], input[type="text"]:not([disabled]), input:not([type]):not([disabled])')
+                : null;
+        }
+
+        function obterCampoMensagem(elementoAlvo = null) {
+            // Prioriza o campo que realmente recebeu o evento. Isso evita que
+            // campos ocultos de upload ou editores auxiliares sejam confundidos
+            // com a caixa de mensagem (ocorre, por exemplo, no Copilot).
+            const campoDoEvento = campoEditavel(elementoAlvo);
+            if (campoDoEvento && campoDoEvento.getClientRects().length > 0) {
+                return campoDoEvento;
+            }
+
+            return Array.from(document.querySelectorAll(
+                'textarea:not([disabled]), [contenteditable="true"], ' +
+                'input[type="text"]:not([disabled]), input:not([type]):not([disabled])'
+            )).find(campo => campo.getClientRects().length > 0 && !campo.readOnly) || null;
         }
 
         document.addEventListener("keydown", (event) => {
             if (event.key !== "Enter" || event.shiftKey) return;
 
-            const campo = obterCampoMensagem();
+            const campo = obterCampoMensagem(event.target);
             if (!campo || (campo !== event.target && !campo.contains(event.target))) {
                 return;
             }
@@ -197,7 +211,7 @@ if (tipo === "IA") {
             );
             if (!botao) return;
 
-            const campo = obterCampoMensagem();
+            const campo = obterCampoMensagem(botao);
             if (campoTemTexto(campo)) {
                 registrarInteracao("clique no botão de envio");
             }
