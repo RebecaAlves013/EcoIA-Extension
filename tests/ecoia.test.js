@@ -149,3 +149,66 @@ test("popup exibe contador e estima energia e água a partir dos registros armaz
   getElementById("scenario").listeners.change();
   assert.equal(getElementById("energy").textContent, "2.4 Wh");
 });
+
+
+test("content script detecta envio simulado no ChatGPT e evita clique duplicado", async () => {
+  const source = await read("../src/content/content.js");
+  const handlers = {};
+  const sentMessages = [];
+  let now = 10_000;
+
+  class FakeDate extends Date {
+    static now() { return now; }
+  }
+
+  class Element {
+    constructor() { this.innerText = "mensagem de teste"; }
+    contains(target) { return target === this; }
+    closest() { return this; }
+  }
+
+  const campo = new Element();
+  campo.getAttribute = (name) =>
+    name === "aria-label" ? "Pergunte ao ChatGPT" : null;
+
+  const botao = new Element();
+  const document = {
+    querySelector() { return campo; },
+    addEventListener(type, callback) { handlers[type] = callback; }
+  };
+
+  const chrome = {
+    runtime: {
+      lastError: null,
+      sendMessage(message, callback) {
+        sentMessages.push(message);
+        callback?.();
+      }
+    }
+  };
+
+  vm.runInNewContext(source, {
+    window: { location: { hostname: "chatgpt.com" }, addEventListener() {} },
+    document,
+    chrome,
+    console: { log() {}, error() {}, warn() {} },
+    Element,
+    HTMLFormElement: class HTMLFormElement {},
+    Date: FakeDate,
+    Math,
+    PerformanceObserver: class {},
+    performance: { setResourceTimingBufferSize() {} },
+    setTimeout
+  });
+
+  assert.equal(typeof handlers.click, "function");
+  handlers.click({ target: botao });
+  handlers.click({ target: botao }); // mesmo envio: deve ser ignorado
+  assert.equal(sentMessages.length, 1);
+  assert.equal(sentMessages[0].type, "AI_INTERACTION");
+  assert.equal(sentMessages[0].service, "ChatGPT");
+
+  now += 1500;
+  handlers.click({ target: botao }); // novo envio após a janela ant duplicação
+  assert.equal(sentMessages.length, 2);
+});
