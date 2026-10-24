@@ -33,7 +33,7 @@ if (
 } else if (host === "claude.ai" || host.endsWith(".claude.ai") || (host === "127.0.0.1" && localTestServices[localTestService] === "Claude")) {
     tipo = "IA";
     servico = "Claude";
-} else if (host === "copilot.microsoft.com" || host === "m365.cloud.microsoft" || (host === "127.0.0.1" && localTestServices[localTestService] === "Copilot")) {
+} else if (host === "copilot.microsoft.com" || host === "copilot.cloud.microsoft" || host === "m365.cloud.microsoft" || (host === "127.0.0.1" && localTestServices[localTestService] === "Copilot")) {
     tipo = "IA";
     servico = "Copilot";
 } else if (
