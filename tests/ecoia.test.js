@@ -491,7 +491,7 @@ test("popup trata armazenamento vazio, aba sem URL e tempo de navegação", asyn
   };
 
   let source = await read("../src/popup/popup.js");
-  source = source.replace(/^import[\\s\\S]*?;\\s*/gm, "");
+  source = source.replace(/^import[\s\S]*?;\s*/gm, "");
 
   const document = {
     addEventListener(type, fn) { if (type === "DOMContentLoaded") onReady = fn; },
@@ -523,11 +523,11 @@ test("popup trata armazenamento vazio, aba sem URL e tempo de navegação", asyn
 
 test("popup identifica os serviços de IA e páginas web", async () => {
   const source = await read("../src/popup/popup.js");
-  const match = source.match(/function identifyService\\(url\\) \\{[\\s\\S]*?\\n\\}/);
+  const match = source.match(/function identifyService\(url\) \{[\s\S]*?\n\}/);
   assert.ok(match, "a função identifyService deve existir");
 
   const context = { };
-  vm.runInNewContext(match[0] + "\\nthis.identifyService = identifyService;", context);
+  vm.runInNewContext(match[0] + "\nthis.identifyService = identifyService;", context);
 
   assert.equal(context.identifyService("https://chatgpt.com/"), "IA — ChatGPT");
   assert.equal(context.identifyService("https://chat.openai.com/"), "IA — ChatGPT");
