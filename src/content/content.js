@@ -33,7 +33,7 @@ if (
 } else if (host === "claude.ai" || host.endsWith(".claude.ai") || (host === "127.0.0.1" && localTestServices[localTestService] === "Claude")) {
     tipo = "IA";
     servico = "Claude";
-} else if (host === "copilot.microsoft.com" || (host === "127.0.0.1" && localTestServices[localTestService] === "Copilot")) {
+} else if (host === "copilot.microsoft.com" || host === "m365.cloud.microsoft" || (host === "127.0.0.1" && localTestServices[localTestService] === "Copilot")) {
     tipo = "IA";
     servico = "Copilot";
 } else if (
@@ -175,14 +175,14 @@ if (tipo === "IA") {
             // campos ocultos de upload ou editores auxiliares sejam confundidos
             // com a caixa de mensagem (ocorre, por exemplo, no Copilot).
             const campoDoEvento = campoEditavel(elementoAlvo);
-            if (campoDoEvento && campoDoEvento.getClientRects().length > 0) {
+            if (campoDoEvento && (!campoDoEvento.getClientRects || campoDoEvento.getClientRects().length > 0)) {
                 return campoDoEvento;
             }
 
             return Array.from(document.querySelectorAll(
                 'textarea:not([disabled]), [contenteditable="true"], ' +
                 'input[type="text"]:not([disabled]), input:not([type]):not([disabled])'
-            )).find(campo => campo.getClientRects().length > 0 && !campo.readOnly) || null;
+            )).find(campo => (!campo.getClientRects || campo.getClientRects().length > 0) && !campo.readOnly) || null;
         }
 
         document.addEventListener("keydown", (event) => {
