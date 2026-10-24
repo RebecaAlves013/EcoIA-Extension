@@ -3,9 +3,18 @@ const host = window.location.hostname;
 
 // Modo de teste restrito ao servidor local usado pelos testes automatizados.
 // Não ativa em sites públicos nem altera o comportamento normal da extensão.
-const isAutomatedChatGPTTest =
-    host === "127.0.0.1" &&
-    new URLSearchParams(window.location.search).get("ecoiaTest") === "chatgpt";
+const localTestService =
+    host === "127.0.0.1"
+        ? new URLSearchParams(window.location.search).get("ecoiaTest")
+        : null;
+
+const isAutomatedChatGPTTest = localTestService === "chatgpt";
+const localTestServices = {
+    gemini: "Gemini",
+    claude: "Claude",
+    copilot: "Copilot",
+    perplexity: "Perplexity"
+};
 
 let tipo = "WEB";
 let servico = null;
@@ -18,18 +27,19 @@ if (
 ) {
     tipo = "IA";
     servico = "ChatGPT";
-} else if (host === "gemini.google.com") {
+} else if (host === "gemini.google.com" || (host === "127.0.0.1" && localTestServices[localTestService] === "Gemini")) {
     tipo = "IA";
     servico = "Gemini";
-} else if (host === "claude.ai" || host.endsWith(".claude.ai")) {
+} else if (host === "claude.ai" || host.endsWith(".claude.ai") || (host === "127.0.0.1" && localTestServices[localTestService] === "Claude")) {
     tipo = "IA";
     servico = "Claude";
-} else if (host === "copilot.microsoft.com") {
+} else if (host === "copilot.microsoft.com" || (host === "127.0.0.1" && localTestServices[localTestService] === "Copilot")) {
     tipo = "IA";
     servico = "Copilot";
 } else if (
     host === "perplexity.ai" ||
-    host.endsWith(".perplexity.ai")
+    host.endsWith(".perplexity.ai") ||
+    (host === "127.0.0.1" && localTestServices[localTestService] === "Perplexity")
 ) {
     tipo = "IA";
     servico = "Perplexity";
