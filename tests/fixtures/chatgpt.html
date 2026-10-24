@@ -1,18 +1,38 @@
 <!doctype html>
 <html lang="pt-BR">
-<head><meta charset="utf-8"><title>EcoIA Teste Automatizado</title></head>
+<head><meta charset="utf-8"><title>EcoIA Simulador Local de IA</title></head>
 <body>
-  <h1>Simulador local do ChatGPT</h1>
-  <div id="prompt-textarea" contenteditable="true" aria-label="Pergunte ao ChatGPT"></div>
+  <h1 id="heading">Simulador local de IA</h1>
+  <label for="prompt-textarea">Mensagem de teste</label>
+  <textarea id="prompt-textarea" aria-label="Mensagem" placeholder="Digite uma mensagem"></textarea>
   <button id="send" aria-label="Enviar">Enviar</button>
+  <p id="status" aria-live="polite">Simulação local; nenhuma mensagem é enviada à internet.</p>
   <script>
-    document.getElementById("send").addEventListener("click", () => {
-      document.getElementById("prompt-textarea").textContent = "";
-    });
-    document.getElementById("prompt-textarea").addEventListener("keydown", event => {
+    const params = new URLSearchParams(location.search);
+    const names = {
+      chatgpt: "ChatGPT",
+      gemini: "Gemini",
+      claude: "Claude",
+      copilot: "Copilot",
+      perplexity: "Perplexity"
+    };
+    const service = names[params.get("ecoiaTest")] || "ChatGPT";
+    document.title = "EcoIA Simulador Local — " + service;
+    document.querySelector("#heading").textContent = "Simulador local: " + service;
+    const field = document.querySelector("#prompt-textarea");
+    function submitMessage() {
+      if (!field.value.trim()) {
+        document.querySelector("#status").textContent = "Digite uma mensagem para simular o envio.";
+        return;
+      }
+      document.querySelector("#status").textContent = "Envio simulado para " + service + ". Nada foi enviado à internet.";
+      field.value = "";
+    }
+    document.querySelector("#send").addEventListener("click", submitMessage);
+    field.addEventListener("keydown", event => {
       if (event.key === "Enter" && !event.shiftKey) {
         event.preventDefault();
-        event.currentTarget.textContent = "";
+        submitMessage();
       }
     });
   </script>
