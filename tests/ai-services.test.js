@@ -34,17 +34,9 @@ function createHarness(host) {
     contains(target) { return target === this; }
     closest(selector) {
       if (!this.label) return null;
-      return selector.split(",").some(part => {
-        const normalized = part.trim();
-        return normalized.includes(this.label) ||
-          (normalized.includes("Send message") && this.label === "Send message") ||
-          (normalized.includes("Enviar") && this.label === "Enviar");
-      }) ? this : null;
-    }
-    getAttribute(name) {
-      if (name === "aria-label") return this.label || null;
-      if (name === "placeholder") return "Digite sua mensagem";
-      return null;
+      return selector.split(",").some(part =>
+        part.trim().includes(this.label)
+      ) ? this : null;
     }
   }
 
@@ -61,7 +53,9 @@ function createHarness(host) {
 
   const document = {
     querySelector() { return field; },
-    addEventListener(type, callback) { handlers[type] = callback; }
+    addEventListener(type, callback) {
+      (handlers[type] ||= []).push(callback);
+    }
   };
 
   const chrome = {
@@ -90,8 +84,12 @@ function createHarness(host) {
     performance: { setResourceTimingBufferSize() {} }
   });
 
+  const fire = (type, event) => {
+    for (const handler of handlers[type] || []) handler(event);
+  };
+
   return {
-    handlers,
+    fire,
     sentMessages,
     field,
     button,
@@ -101,34 +99,60 @@ function createHarness(host) {
 }
 
 for (const provider of providers) {
-  test(`diagnóstico ${provider.service}: serviço é identificado como IA`, () => {
+  test(`${provider.service}: clique no botão registra uma interação`, () => {
     const h = createHarness(provider.host);
-    assert.equal(typeof h.handlers.submit, "function");
-  });
-
-  test(`diagnóstico ${provider.service}: envio de formulário é registrado`, () => {
-    const h = createHarness(provider.host);
-    h.handlers.submit({
-      target: new h.FakeForm(),
-      preventDefault() {}
-    });
+    h.fire("click", { target: h.button });
 
     assert.equal(h.sentMessages.length, 1);
     assert.equal(h.sentMessages[0].type, "AI_INTERACTION");
     assert.equal(h.sentMessages[0].service, provider.service);
   });
 
-  test(`diagnóstico ${provider.service}: detector atual não escuta clique nem Enter`, () => {
+  test(`${provider.service}: Enter registra uma interação`, () => {
     const h = createHarness(provider.host);
+    h.fire("keydown", {
+      key: "Enter",
+      shiftKey: false,
+      target: h.field
+    });
 
-    // Este teste registra o comportamento atual, não afirma que seja o comportamento desejado.
-    assert.equal(h.handlers.click, undefined);
-    assert.equal(h.handlers.keydown, undefined);
+    assert.equal(h.sentMessages.length, 1);
+    assert.equal(h.sentMessages[0].service, provider.service);
+  });
+
+  test(`${provider.service}: Shift+Enter não registra envio`, () => {
+    const h = createHarness(provider.host);
+    h.fire("keydown", {
+      key: "Enter",
+      shiftKey: true,
+      target: h.field
+    });
+
     assert.equal(h.sentMessages.length, 0);
+  });
+
+  test(`${provider.service}: submit de formulário registra uma interação`, () => {
+    const h = createHarness(provider.host);
+    h.fire("submit", { target: new h.FakeForm() });
+
+    assert.equal(h.sentMessages.length, 1);
+    assert.equal(h.sentMessages[0].service, provider.service);
+  });
+
+  test(`${provider.service}: clique e submit próximos não duplicam a interação`, () => {
+    const h = createHarness(provider.host);
+    h.fire("click", { target: h.button });
+    h.fire("submit", { target: new h.FakeForm() });
+
+    assert.equal(h.sentMessages.length, 1);
+
+    h.advance(1300);
+    h.fire("click", { target: h.button });
+    assert.equal(h.sentMessages.length, 2);
   });
 }
 
-test("diagnóstico: o content.js contém listeners de clique e Enter somente no ramo ChatGPT", () => {
+test("o detector mantém os listeners específicos do ChatGPT", () => {
   assert.match(source, /if \(servico === "ChatGPT"\)/);
   assert.match(source, /document\.addEventListener\("keydown"/);
   assert.match(source, /document\.addEventListener\("click"/);
