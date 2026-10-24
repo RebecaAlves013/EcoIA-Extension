@@ -141,7 +141,7 @@ test("popup exibe contador e estima energia e água a partir dos registros armaz
   assert.equal(typeof onReady, "function");
   await onReady();
 
-  assert.equal(getElementById("interactions").textContent, "4");
+  assert.equal(Number(getElementById("interactions").textContent), 4);
   assert.equal(getElementById("energy").textContent, "1.24 Wh");
   assert.equal(getElementById("water").textContent, "1.04 mL");
 
