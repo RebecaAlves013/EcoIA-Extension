@@ -174,3 +174,81 @@ test("estresse: 100 interações armazenadas aparecem corretamente no popup", as
     await fixture.close();
   }
 });
+
+
+test("E2E: alterna simulação de 100 interações sem alterar os dados reais", async (t) => {
+  const fixture = await startFixtureServer();
+  let context;
+
+  try {
+    context = await chromium.launchPersistentContext("", {
+      headless: false,
+      args: [
+        `--disable-extensions-except=${extensionPath}`,
+        `--load-extension=${extensionPath}`,
+        "--no-first-run",
+        "--no-default-browser-check"
+      ]
+    });
+  } catch (error) {
+    await fixture.close();
+    t.skip(`Não foi possível iniciar Chromium com extensões: ${error.message}`);
+    return;
+  }
+
+  try {
+    const workers = context.serviceWorkers();
+    const serviceWorker = workers[0] || await context.waitForEvent("serviceworker", { timeout: 15000 });
+    const page = await context.newPage();
+    await page.goto(fixture.url);
+    await page.waitForTimeout(300);
+
+    const realInteractions = [
+      { service: "ChatGPT", timestamp: "test-1" },
+      { service: "ChatGPT", timestamp: "test-2" }
+    ];
+    await serviceWorker.evaluate(async (interactions) => {
+      await chrome.storage.local.set({ interactions });
+    }, realInteractions);
+
+    const extensionId = serviceWorker.url().split("/")[2];
+    const popup = await context.newPage();
+    await popup.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
+    await popup.waitForFunction(
+      () => document.querySelector("#interactions")?.textContent === "2",
+      null,
+      { timeout: 5000 }
+    );
+
+    assert.equal(await popup.locator("#energy").textContent(), "0.62 Wh");
+    assert.equal(await popup.locator("#water").textContent(), "0.52 mL");
+    assert.equal(await popup.locator("#simulationStatus").textContent(), "Dados reais da extensão.");
+
+    await popup.locator("#simulationToggle").click();
+    assert.equal(await popup.locator("#interactions").textContent(), "100");
+    assert.equal(await popup.locator("#energy").textContent(), "31 Wh");
+    assert.equal(await popup.locator("#water").textContent(), "26 mL");
+    assert.equal(await popup.locator("#service").textContent(), "SIMULAÇÃO — ChatGPT");
+    assert.equal(await popup.locator("#simulationStatus").textContent(), "Modo de demonstração ativo. Dados reais preservados.");
+    assert.equal(await popup.locator("#simulationToggle").textContent(), "Voltar aos dados reais");
+
+    await popup.locator("#scenario").selectOption("high");
+    assert.equal(await popup.locator("#energy").textContent(), "60 Wh");
+    assert.equal(await popup.locator("#water").textContent(), "26 mL");
+
+    await popup.locator("#simulationToggle").click();
+    assert.equal(await popup.locator("#interactions").textContent(), "2");
+    assert.equal(await popup.locator("#energy").textContent(), "1.2 Wh");
+    assert.equal(await popup.locator("#water").textContent(), "0.52 mL");
+    assert.equal(await popup.locator("#service").textContent(), "IA — ChatGPT");
+    assert.equal(await popup.locator("#simulationStatus").textContent(), "Dados reais da extensão.");
+    assert.equal(await popup.locator("#simulationToggle").textContent(), "Simular 100 interações");
+
+    const stored = await readInteractions(serviceWorker);
+    assert.equal(stored.length, 2, "a simulação não deve alterar os registros armazenados");
+    assert.deepEqual(stored.map(item => item.timestamp), ["test-1", "test-2"]);
+  } finally {
+    await context.close();
+    await fixture.close();
+  }
+});
