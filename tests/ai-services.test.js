@@ -221,9 +221,9 @@ test("ChatGPT: comunicação normal registra envio sem aviso", () => {
 
 test("ChatGPT: reconhece o composer textarea da interface móvel", () => {
   assert.match(source, /#mobile-composer-prompt/);
-  assert.match(source, /textarea\\[aria-label="Chat com o ChatGPT"\\]/);
+  assert.ok(source.includes('textarea[aria-label="Chat com o ChatGPT"]'));
 });
 
 test("Copilot: reconhece o domínio de redirecionamento M365", () => {
-  assert.match(source, /host === "m365\\.cloud\\.microsoft"/);
+  assert.ok(source.includes('host === "m365.cloud.microsoft"'));
 });
