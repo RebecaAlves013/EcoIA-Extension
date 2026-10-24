@@ -106,6 +106,7 @@ if (tipo === "IA") {
     function obterCampoChatGPT() {
     return document.querySelector(
         '#prompt-textarea, ' +
+        '#mobile-composer-prompt, ' +
         'textarea[data-testid*="prompt"], ' +
         '[contenteditable="true"][data-testid*="prompt"], ' +
         '[contenteditable="true"][aria-label="Pergunte ao ChatGPT"], ' +
