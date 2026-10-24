@@ -6,7 +6,8 @@
   "scripts": {
     "test": "node --test tests/ecoia.test.js tests/ai-services.test.js",
     "test:e2e": "node --test tests/e2e.test.js",
-    "test:all": "npm test && npm run test:e2e"
+    "test:all": "npm test && npm run test:e2e",
+    "test:real": "node --test tests/real-platforms.test.js"
   },
   "devDependencies": {
     "playwright": "^1.55.0"
