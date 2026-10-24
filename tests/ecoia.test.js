@@ -319,3 +319,125 @@ test("content script detecta envio simulado no ChatGPT e evita clique duplicado"
   handlers.click({ target: botao });
   assert.equal(sentMessages.length, 2);
 });
+
+
+test("content script contabiliza recursos web uma vez e separa recursos sem tamanho", async () => {
+  const source = await read("../src/content/content.js");
+  let observerCallback;
+  let observerOptions;
+  const sentMessages = [];
+  const timers = [];
+  const windowHandlers = {};
+
+  class FakePerformanceObserver {
+    constructor(callback) { observerCallback = callback; }
+    observe(options) { observerOptions = options; }
+  }
+
+  const chrome = {
+    runtime: {
+      lastError: null,
+      sendMessage(message, callback) {
+        sentMessages.push(message);
+        callback?.();
+      }
+    }
+  };
+
+  const window = {
+    location: { hostname: "example.com", search: "" },
+    addEventListener(type, callback) { windowHandlers[type] = callback; }
+  };
+
+  vm.runInNewContext(source, {
+    window,
+    document: { querySelector() { return null; }, addEventListener() {} },
+    chrome,
+    console: { log() {}, error() {}, warn() {} },
+    Element: class Element {},
+    HTMLFormElement: class HTMLFormElement {},
+    URL,
+    URLSearchParams,
+    Date,
+    Math: Object.create(Math),
+    PerformanceObserver: FakePerformanceObserver,
+    performance: { setResourceTimingBufferSize() {} },
+    setTimeout(callback) { timers.push(callback); return timers.length; }
+  });
+
+  assert.equal(typeof observerCallback, "function");
+  assert.deepEqual(JSON.parse(JSON.stringify(observerOptions)), {
+    type: "resource",
+    buffered: true
+  });
+  assert.equal(typeof windowHandlers.pagehide, "function");
+
+  const resourceA = { name: "https://example.com/a.js", startTime: 10, transferSize: 1000 };
+  const resourceB = { name: "https://example.com/b.css", startTime: 20, transferSize: 0 };
+  observerCallback({ getEntries: () => [resourceA, resourceB, resourceA] });
+
+  assert.equal(timers.length, 1, "várias entradas devem ser agrupadas em um envio");
+  timers.shift()();
+
+  assert.equal(sentMessages.length, 1);
+  assert.equal(sentMessages[0].type, "WEB_TRANSFER");
+  assert.equal(sentMessages[0].domain, "example.com");
+  assert.equal(sentMessages[0].bytes, 1000);
+  assert.equal(sentMessages[0].resources, 2);
+  assert.equal(sentMessages[0].zeroSizeResources, 1);
+  assert.equal(typeof sentMessages[0].pageId, "string");
+  assert.equal(sentMessages[0].pageId.length > 0, true);
+
+  // Uma nova entrada para o mesmo recurso com a mesma marca temporal não soma bytes novamente.
+  observerCallback({ getEntries: () => [resourceA] });
+  assert.equal(timers.length, 1);
+  timers.shift()();
+  assert.equal(sentMessages.length, 2);
+  assert.equal(sentMessages[1].bytes, 1000);
+  assert.equal(sentMessages[1].resources, 2);
+  assert.equal(sentMessages[1].zeroSizeResources, 1);
+});
+
+test("content script não envia resumo web quando não observou recursos", async () => {
+  const source = await read("../src/content/content.js");
+  let observerCallback;
+  const sentMessages = [];
+  const timers = [];
+
+  class FakePerformanceObserver {
+    constructor(callback) { observerCallback = callback; }
+    observe() {}
+  }
+
+  vm.runInNewContext(source, {
+    window: {
+      location: { hostname: "example.org", search: "" },
+      addEventListener() {}
+    },
+    document: { querySelector() { return null; }, addEventListener() {} },
+    chrome: {
+      runtime: {
+        lastError: null,
+        sendMessage(message, callback) {
+          sentMessages.push(message);
+          callback?.();
+        }
+      }
+    },
+    console: { log() {}, error() {}, warn() {} },
+    Element: class Element {},
+    HTMLFormElement: class HTMLFormElement {},
+    URL,
+    URLSearchParams,
+    Date,
+    Math: Object.create(Math),
+    PerformanceObserver: FakePerformanceObserver,
+    performance: { setResourceTimingBufferSize() {} },
+    setTimeout(callback) { timers.push(callback); return timers.length; }
+  });
+
+  observerCallback({ getEntries: () => [] });
+  assert.equal(timers.length, 1);
+  timers.shift()();
+  assert.equal(sentMessages.length, 0);
+});
