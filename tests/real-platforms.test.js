@@ -30,9 +30,9 @@ const providers = [
   },
   {
     name: "Copilot",
-    url: "https://copilot.microsoft.com/",
-    composer: "textarea, [contenteditable='true'], [role='textbox']",
-    sendButton: "button[aria-label*='Send' i], button[aria-label*='Enviar' i], button[type='submit']"
+    url: "https://copilot.cloud.microsoft/chat",
+    composer: "#m365-chat-editor-target-element, [aria-label='Enviar uma mensagem para o Copilot'], textarea, [contenteditable='true'], [role='textbox']",
+    sendButton: "button[aria-label*='Enviar' i], button[aria-label*='Send' i], button[data-testid*='send' i], button[type='submit']"
   },
   {
     name: "Perplexity",
@@ -93,6 +93,11 @@ async function waitForNewInteraction(worker, previousCount, providerName, timeou
 async function findVisibleComposer(page, selector, timeoutMs = 120000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
+    if (page.url().includes("login.microsoftonline.com") ||
+        page.url().includes("/login") ||
+        page.url().includes("signin")) {
+      throw new Error("A plataforma redirecionou para login. Entre manualmente no perfil persistente de teste e execute novamente.");
+    }
     const candidates = page.locator(selector);
     const count = await candidates.count().catch(() => 0);
     for (let index = count - 1; index >= 0; index--) {
