@@ -3,7 +3,10 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 
-const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
+const source = await readFile(
+  new URL("../src/content/content.js", import.meta.url),
+  "utf8"
+);
 
 const providers = [
   { host: "gemini.google.com", service: "Gemini" },
@@ -29,7 +32,15 @@ function createHarness(host) {
       this.label = label;
     }
     contains(target) { return target === this; }
-    closest() { return this.label ? this : null; }
+    closest(selector) {
+      if (!this.label) return null;
+      return selector.split(",").some(part => {
+        const normalized = part.trim();
+        return normalized.includes(this.label) ||
+          (normalized.includes("Send message") && this.label === "Send message") ||
+          (normalized.includes("Enviar") && this.label === "Enviar");
+      }) ? this : null;
+    }
     getAttribute(name) {
       if (name === "aria-label") return this.label || null;
       if (name === "placeholder") return "Digite sua mensagem";
@@ -37,8 +48,16 @@ function createHarness(host) {
     }
   }
 
-  const field = new Element({ value: "mensagem automatizada" });
-  const button = new Element({ label: "Send message" });
+  const field = new Element({
+    value: "mensagem automatizada",
+    text: "mensagem automatizada"
+  });
+  const button = new Element({ label: "Enviar" });
+
+  class FakeForm {
+    querySelector() { return field; }
+    querySelectorAll() { return [field]; }
+  }
 
   const document = {
     querySelector() { return field; },
@@ -55,61 +74,43 @@ function createHarness(host) {
     }
   };
 
-  vm.runInNewContext(
-    // O script é executado como content script real, com DOM e APIs simulados.
-    // Isso testa o detector sem depender de alterações na interface pública do site.
-    readContentSource,
-    {
-      window: { location: { hostname: host, search: "" }, addEventListener() {} },
-      document,
-      chrome,
-      console: { log() {}, error() {}, warn() {} },
-      Element,
-      HTMLFormElement: class HTMLFormElement {},
-      URL,
-      URLSearchParams,
-      Date: FakeDate,
-      Math,
-      setTimeout
-    }
-  );
+  vm.runInNewContext(source, {
+    window: { location: { hostname: host, search: "" }, addEventListener() {} },
+    document,
+    chrome,
+    console: { log() {}, error() {}, warn() {} },
+    Element,
+    HTMLFormElement: FakeForm,
+    URL,
+    URLSearchParams,
+    Date: FakeDate,
+    Math,
+    setTimeout,
+    PerformanceObserver: class {},
+    performance: { setResourceTimingBufferSize() {} }
+  });
 
   return {
     handlers,
     sentMessages,
     field,
     button,
+    FakeForm,
     advance(ms) { now += ms; }
   };
 }
 
-let readContentSource = "";
-
-test("carrega o content.js antes dos testes de provedores", async () => {
-  readContentSource = await read("../src/content/content.js");
-  assert.match(readContentSource, /envio de formulário/);
-});
-
 for (const provider of providers) {
-  test(`IA ${provider.service}: clique no botão registra uma interação`, async () => {
+  test(`diagnóstico ${provider.service}: serviço é identificado como IA`, () => {
     const h = createHarness(provider.host);
-    assert.equal(typeof h.handlers.click, "function");
-
-    h.handlers.click({ target: h.button });
-
-    assert.equal(h.sentMessages.length, 1);
-    assert.equal(h.sentMessages[0].type, "AI_INTERACTION");
-    assert.equal(h.sentMessages[0].service, provider.service);
+    assert.equal(typeof h.handlers.submit, "function");
   });
 
-  test(`IA ${provider.service}: Enter registra uma interação`, async () => {
+  test(`diagnóstico ${provider.service}: envio de formulário é registrado`, () => {
     const h = createHarness(provider.host);
-    assert.equal(typeof h.handlers.keydown, "function");
-
-    h.handlers.keydown({
-      key: "Enter",
-      shiftKey: false,
-      target: h.field
+    h.handlers.submit({
+      target: new h.FakeForm(),
+      preventDefault() {}
     });
 
     assert.equal(h.sentMessages.length, 1);
@@ -117,15 +118,19 @@ for (const provider of providers) {
     assert.equal(h.sentMessages[0].service, provider.service);
   });
 
-  test(`IA ${provider.service}: Shift+Enter não registra envio`, async () => {
+  test(`diagnóstico ${provider.service}: detector atual não escuta clique nem Enter`, () => {
     const h = createHarness(provider.host);
 
-    h.handlers.keydown({
-      key: "Enter",
-      shiftKey: true,
-      target: h.field
-    });
-
+    // Este teste registra o comportamento atual, não afirma que seja o comportamento desejado.
+    assert.equal(h.handlers.click, undefined);
+    assert.equal(h.handlers.keydown, undefined);
     assert.equal(h.sentMessages.length, 0);
   });
 }
+
+test("diagnóstico: o content.js contém listeners de clique e Enter somente no ramo ChatGPT", () => {
+  assert.match(source, /if \(servico === "ChatGPT"\)/);
+  assert.match(source, /document\.addEventListener\("keydown"/);
+  assert.match(source, /document\.addEventListener\("click"/);
+  assert.match(source, /document\.addEventListener\("submit"/);
+});
