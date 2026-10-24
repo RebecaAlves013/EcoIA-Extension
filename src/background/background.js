@@ -21,6 +21,7 @@ function identificarTipo(url) {
         "gemini.google.com",
         "claude.ai",
         "copilot.microsoft.com",
+        "m365.cloud.microsoft",
         "perplexity.ai"
     ];
 
