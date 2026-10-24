@@ -108,6 +108,59 @@ test("E2E: clique e Enter registram uma interação cada e popup mostra total", 
 });
 
 
+test("E2E: simuladores locais registram interações nas cinco IAs", async (t) => {
+  const fixture = await startFixtureServer();
+  let context;
+
+  try {
+    context = await chromium.launchPersistentContext("", {
+      headless: false,
+      args: [
+        `--disable-extensions-except=${extensionPath}`,
+        `--load-extension=${extensionPath}`,
+        "--no-first-run",
+        "--no-default-browser-check"
+      ]
+    });
+  } catch (error) {
+    await fixture.close();
+    t.skip(`Não foi possível iniciar Chromium com extensões: ${error.message}`);
+    return;
+  }
+
+  try {
+    const workers = context.serviceWorkers();
+    const serviceWorker = workers[0] || await context.waitForEvent("serviceworker", { timeout: 15000 });
+    const providers = [
+      { slug: "chatgpt", service: "ChatGPT" },
+      { slug: "gemini", service: "Gemini" },
+      { slug: "claude", service: "Claude" },
+      { slug: "copilot", service: "Copilot" },
+      { slug: "perplexity", service: "Perplexity" }
+    ];
+
+    for (const provider of providers) {
+      await serviceWorker.evaluate(async () => chrome.storage.local.remove(["interactions"]));
+      const page = await context.newPage();
+      await page.goto(fixture.url.replace("ecoiaTest=chatgpt", `ecoiaTest=${provider.slug}`));
+      await page.waitForTimeout(350);
+
+      await page.locator("#prompt-textarea").fill("Teste local de " + provider.service);
+      await page.locator("#send").click();
+
+      const interactions = await waitForInteractionCount(serviceWorker, 1);
+      assert.equal(interactions.length, 1, provider.service + ": deve registrar exatamente uma interação");
+      assert.equal(interactions[0].service, provider.service);
+      assert.match(await page.locator("#heading").textContent(), new RegExp(provider.service));
+      await page.close();
+    }
+  } finally {
+    await context.close();
+    await fixture.close();
+  }
+});
+
+
 test("estresse: 100 interações armazenadas aparecem corretamente no popup", async (t) => {
   const fixture = await startFixtureServer();
   let context;
