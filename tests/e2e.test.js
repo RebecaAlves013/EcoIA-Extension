@@ -36,6 +36,17 @@ async function readInteractions(serviceWorker) {
   });
 }
 
+async function waitForInteractionCount(serviceWorker, expectedCount, timeoutMs = 5000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const interactions = await readInteractions(serviceWorker);
+    if (interactions.length === expectedCount) return interactions;
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  const actual = (await readInteractions(serviceWorker)).length;
+  throw new Error(`Esperava ${expectedCount} interações, mas encontrei ${actual}.`);
+}
+
 test("E2E: clique e Enter registram uma interação cada e popup mostra total", async (t) => {
   const fixture = await startFixtureServer();
   let context;
@@ -70,11 +81,7 @@ test("E2E: clique e Enter registram uma interação cada e popup mostra total", 
     // Envio pelo botão: deve criar exatamente um registro.
     await page.locator("#prompt-textarea").fill("Teste automatizado pelo botão");
     await page.locator("#send").click();
-    await page.waitForFunction(async () => {
-      const result = await chrome.storage.local.get(["interactions"]);
-      return (result.interactions || []).length === 1;
-    }, null, { timeout: 5000 });
-    let interactions = await readInteractions(serviceWorker);
+    let interactions = await waitForInteractionCount(serviceWorker, 1);
     assert.equal(interactions.length, 1);
     assert.equal(interactions[0].service, "ChatGPT");
 
@@ -82,11 +89,7 @@ test("E2E: clique e Enter registram uma interação cada e popup mostra total", 
     await page.waitForTimeout(1300);
     await page.locator("#prompt-textarea").fill("Teste automatizado por Enter");
     await page.locator("#prompt-textarea").press("Enter");
-    await page.waitForFunction(async () => {
-      const result = await chrome.storage.local.get(["interactions"]);
-      return (result.interactions || []).length === 2;
-    }, null, { timeout: 5000 });
-    interactions = await readInteractions(serviceWorker);
+    interactions = await waitForInteractionCount(serviceWorker, 2);
     assert.equal(interactions.length, 2);
     assert.equal(interactions.every(item => item.service === "ChatGPT"), true);
 
