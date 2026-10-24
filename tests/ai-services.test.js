@@ -54,6 +54,7 @@ function createHarness(host, sendMessageMode = "ok") {
 
   const document = {
     querySelector() { return field; },
+    querySelectorAll() { return [field]; },
     addEventListener(type, callback) {
       (handlers[type] ||= []).push(callback);
     }
