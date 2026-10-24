@@ -184,7 +184,8 @@ test("ChatGPT: contexto invalidado não gera exceção não tratada", () => {
 
   assert.equal(h.sentMessages.length, 0);
   assert.equal(h.warnings.length, 1);
-  assert.match(String(h.warnings[0].join(" ")), /contexto da extensão/i);
+  assert.match(String(h.warnings[0].join(" ")), /Falha ao comunicar com a extensão/i);
+  assert.match(String(h.warnings[0].join(" ")), /Extension context invalidated/i);
 });
 
 test("ChatGPT: lastError retornado pelo Chrome é tratado sem exceção", () => {
