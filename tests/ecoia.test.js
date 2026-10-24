@@ -585,7 +585,14 @@ test("popup alterna entre simulação de 100 interações e dados reais sem alte
   };
 
   let source = await read("../src/popup/popup.js");
-  source = source.replace(/^[\\t ]*import[\\s\\S]*?;[\\t ]*$/gm, "");
+  source = source.replace(
+    'import {\\n    calculateEnergy,\\n    formatEnergy\\n} from "../calculations/energy.js";',
+    ""
+  );
+  source = source.replace(
+    'import {\\n    loadParameters\\n} from "../services/parameters.js";',
+    ""
+  );
   const document = {
     addEventListener(type, fn) { if (type === "DOMContentLoaded") onReady = fn; },
     getElementById
