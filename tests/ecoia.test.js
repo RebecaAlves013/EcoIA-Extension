@@ -538,3 +538,95 @@ test("popup identifica os serviços de IA e páginas web", async () => {
   assert.equal(context.identifyService("https://example.com/"), "WEB");
   assert.equal(context.identifyService(""), "Página desconhecida");
 });
+
+
+test("popup alterna entre simulação de 100 interações e dados reais sem alterar armazenamento", async () => {
+  let onReady;
+  const elements = new Map();
+  const getElementById = (id) => {
+    if (!elements.has(id)) {
+      elements.set(id, {
+        id,
+        textContent: "",
+        value: id === "scenario" ? "central" : "",
+        listeners: {},
+        addEventListener(type, fn) { this.listeners[type] = fn; }
+      });
+    }
+    return elements.get(id);
+  };
+
+  const interactions = [
+    { service: "ChatGPT", timestamp: "t1" },
+    { service: "ChatGPT", timestamp: "t2" }
+  ];
+  const chrome = {
+    storage: {
+      local: {
+        get: async (keys) => {
+          const result = {};
+          for (const key of keys) {
+            result[key] = key === "interactions" ? interactions :
+              key === "webVisits" ? [] :
+              key === "webTransfer" ? [] : undefined;
+          }
+          return result;
+        }
+      }
+    },
+    tabs: { query: async () => [{ url: "https://chatgpt.com/" }] }
+  };
+  const parameters = {
+    ai: {
+      energy: { scenarios: { low: 0.16, central: 0.31, high: 0.6 } },
+      water: { reference: { value: 0.26 } }
+    },
+    web: { energy: { scenarios: { low: 1.1, central: 1.8, high: 2.4 } } }
+  };
+
+  let source = await read("../src/popup/popup.js");
+  source = source.replace(/^import[\\s\\S]*?;\\s*/gm, "");
+  const document = {
+    addEventListener(type, fn) { if (type === "DOMContentLoaded") onReady = fn; },
+    getElementById
+  };
+
+  vm.runInNewContext(source, {
+    document,
+    chrome,
+    console,
+    calculateEnergy: (n, factor) => n * factor,
+    formatEnergy: (value) => Number(value.toFixed(4)),
+    loadParameters: async () => parameters,
+    Number,
+    Math
+  });
+
+  await onReady();
+
+  assert.equal(getElementById("interactions").textContent, 2);
+  assert.equal(getElementById("energy").textContent, "0.62 Wh");
+  assert.equal(getElementById("water").textContent, "0.52 mL");
+  assert.equal(getElementById("simulationStatus").textContent, "Dados reais da extensão.");
+
+  getElementById("simulationToggle").listeners.click();
+  assert.equal(getElementById("interactions").textContent, 100);
+  assert.equal(getElementById("energy").textContent, "31 Wh");
+  assert.equal(getElementById("water").textContent, "26 mL");
+  assert.equal(getElementById("service").textContent, "SIMULAÇÃO — ChatGPT");
+  assert.equal(getElementById("simulationStatus").textContent, "Modo de demonstração ativo. Dados reais preservados.");
+  assert.equal(getElementById("simulationToggle").textContent, "Voltar aos dados reais");
+
+  getElementById("scenario").value = "high";
+  getElementById("scenario").listeners.change();
+  assert.equal(getElementById("energy").textContent, "60 Wh");
+  assert.equal(getElementById("water").textContent, "26 mL");
+
+  getElementById("simulationToggle").listeners.click();
+  assert.equal(getElementById("interactions").textContent, 2);
+  assert.equal(getElementById("energy").textContent, "1.2 Wh");
+  assert.equal(getElementById("water").textContent, "0.52 mL");
+  assert.equal(getElementById("service").textContent, "IA — ChatGPT");
+  assert.equal(getElementById("simulationStatus").textContent, "Dados reais da extensão.");
+  assert.equal(interactions.length, 2, "o modo de simulação não deve modificar os dados reais");
+});
