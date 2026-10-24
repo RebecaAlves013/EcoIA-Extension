@@ -106,3 +106,85 @@ test("E2E: clique e Enter registram uma interação cada e popup mostra total", 
     await fixture.close();
   }
 });
+
+
+test("estresse: 100 interações armazenadas aparecem corretamente no popup", async (t) => {
+  const fixture = await startFixtureServer();
+  let context;
+
+  try {
+    context = await chromium.launchPersistentContext("", {
+      headless: false,
+      args: [
+        `--disable-extensions-except=${extensionPath}`,
+        `--load-extension=${extensionPath}`,
+        "--no-first-run",
+        "--no-default-browser-check"
+      ]
+    });
+  } catch (error) {
+    await fixture.close();
+    t.skip(`Não foi possível iniciar Chromium com extensões: ${error.message}`);
+    return;
+  }
+
+  try {
+    const workers = context.serviceWorkers();
+    const serviceWorker = workers[0] || await context.waitForEvent("serviceworker", { timeout: 15000 });
+    const page = await context.newPage();
+    await page.goto(fixture.url);
+    await page.waitForTimeout(400);
+
+    await serviceWorker.evaluate(async () => {
+      await chrome.storage.local.remove(["interactions"]);
+    });
+
+    // Envia 100 mensagens ao background para testar armazenamento e atualização do popup.
+    const result = await serviceWorker.evaluate(async () => {
+      for (let i = 0; i < 100; i++) {
+        await new Promise((resolve, reject) => {
+          chrome.runtime.sendMessage({
+            type: "AI_INTERACTION",
+            service: "ChatGPT",
+            timestamp: new Date(Date.now() + i).toISOString()
+          }, response => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+              return;
+            }
+            if (!response?.success) {
+              reject(new Error(`Background não confirmou a interação ${i + 1}`));
+              return;
+            }
+            resolve();
+          });
+        });
+      }
+
+      const stored = await chrome.storage.local.get(["interactions"]);
+      return {
+        count: (stored.interactions || []).length,
+        allChatGPT: (stored.interactions || []).every(item => item.service === "ChatGPT")
+      };
+    });
+
+    assert.equal(result.count, 100, "o armazenamento deve conter 100 interações");
+    assert.equal(result.allChatGPT, true, "todas as interações devem ser do ChatGPT");
+
+    const extensionId = serviceWorker.url().split("/")[2];
+    const popup = await context.newPage();
+    await popup.goto(`chrome-extension://${extensionId}/src/popup/popup.html`);
+    await popup.waitForFunction(
+      () => document.querySelector("#interactions")?.textContent === "100",
+      null,
+      { timeout: 5000 }
+    );
+
+    assert.equal(await popup.locator("#interactions").textContent(), "100");
+    assert.equal(await popup.locator("#energy").textContent(), "31 Wh");
+    assert.equal(await popup.locator("#water").textContent(), "26 mL");
+  } finally {
+    await context.close();
+    await fixture.close();
+  }
+});
