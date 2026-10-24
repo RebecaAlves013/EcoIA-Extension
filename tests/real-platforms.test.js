@@ -26,7 +26,7 @@ const providers = [
     name: "Gemini",
     url: "https://gemini.google.com/app",
     composer: "rich-textarea [contenteditable='true'], rich-textarea textarea, [data-placeholder*='Enter a prompt' i], [role='textbox'], textarea",
-    sendButton: "button[aria-label*='Send' i], button[aria-label*='Enviar' i], button[mattooltip*='Send' i], button[mattooltip*='Enviar' i]"
+    sendButton: "button[aria-label*='Send' i], button[aria-label*='Enviar' i], button[aria-label*='send_message' i], button[data-testid*='send' i], button[mattooltip*='Send' i], button[mattooltip*='Enviar' i]"
   },
   {
     name: "Copilot",
