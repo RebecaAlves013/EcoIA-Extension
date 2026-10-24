@@ -19,7 +19,7 @@ const providers = [
   {
     name: "ChatGPT",
     url: "https://chatgpt.com/",
-    composer: "#prompt-textarea, [data-testid*='prompt'] [contenteditable='true'], textarea, [contenteditable='true'][role='textbox']",
+    composer: "#prompt-textarea, #mobile-composer-prompt, textarea[aria-label='Chat com o ChatGPT'], [data-testid*='prompt'] [contenteditable='true'], textarea, [contenteditable='true'][role='textbox']",
     sendButton: "button[data-testid='send-button'], button[aria-label='Send prompt'], button[aria-label='Enviar prompt'], button[aria-label='Enviar']"
   },
   {
@@ -157,11 +157,22 @@ test("interfaces reais: registra uma interação em cada uma das cinco IAs", {
       await context.waitForEvent("serviceworker", { timeout: 15000 });
 
     for (const provider of providers) {
-      await t.test(provider.name, async () => {
+      await t.test(provider.name, async subtest => {
         const page = await context.newPage();
         try {
           const before = await getInteractions(worker);
           await page.goto(provider.url, { waitUntil: "domcontentloaded", timeout: 60000 });
+
+          // Não tenta enviar mensagens quando a conta Claude está bloqueada.
+          // Esse estado é da conta, não uma falha de detecção da extensão.
+          if (provider.name === "Claude") {
+            const claudePage = `${page.url()} ${await page.locator("body").innerText().catch(() => "")}`;
+            if (/\\/restricted\\/submit|Solicitar uma revisão|conta foi suspensa|account has been suspended/i.test(claudePage)) {
+              subtest.skip("Conta Claude suspensa/restrita; teste real não pode ser executado até a conta ser liberada.");
+              return;
+            }
+          }
+
           const composer = await findVisibleComposer(page, provider.composer);
           const prompt = `Teste de monitoramento EcoIA-Extension. Responda apenas: teste recebido. Código: ${Date.now()}`;
           const sendMethod = await sendTestPrompt(page, provider, composer, prompt);
