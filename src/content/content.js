@@ -1,10 +1,17 @@
 
 const host = window.location.hostname;
 
+// Modo de teste restrito ao servidor local usado pelos testes automatizados.
+// Não ativa em sites públicos nem altera o comportamento normal da extensão.
+const isAutomatedChatGPTTest =
+    host === "127.0.0.1" &&
+    new URLSearchParams(window.location.search).get("ecoiaTest") === "chatgpt";
+
 let tipo = "WEB";
 let servico = null;
 
 if (
+    isAutomatedChatGPTTest ||
     host === "chatgpt.com" ||
     host.endsWith(".chatgpt.com") ||
     host === "chat.openai.com"
