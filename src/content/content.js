@@ -136,29 +136,61 @@ if (tipo === "IA") {
             registrarInteracao("clique no botão do ChatGPT");
         }, true);
     } else {
-        // Alternativa inicial para outros serviços de IA
+        // Seletores genéricos para campos e botões de envio das demais IAs.
+        // As interfaces podem variar; os eventos são combinados com a janela
+        // anti-duplicação para evitar contar submit + click como dois envios.
+        function obterCampoMensagem() {
+            return document.querySelector(
+                'textarea:not([disabled]), ' +
+                '[contenteditable="true"], ' +
+                'input[type="text"]:not([disabled]), ' +
+                'input:not([type]):not([disabled])'
+            );
+        }
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter" || event.shiftKey) return;
+
+            const campo = obterCampoMensagem();
+            if (!campo || (campo !== event.target && !campo.contains(event.target))) {
+                return;
+            }
+
+            if (campoTemTexto(campo)) {
+                registrarInteracao("Enter no campo de mensagem");
+            }
+        }, true);
+
+        document.addEventListener("click", (event) => {
+            const alvo = event.target;
+            if (!(alvo instanceof Element)) return;
+
+            const botao = alvo.closest(
+                'button[type="submit"], input[type="submit"], ' +
+                'button[data-testid*="send"], button[data-testid*="submit"], ' +
+                'button[aria-label*="Send" i], button[aria-label*="Enviar" i], ' +
+                'button[aria-label*="Submit" i], ' +
+                'button[title*="Send" i], button[title*="Enviar" i]'
+            );
+            if (!botao) return;
+
+            const campo = obterCampoMensagem();
+            if (campoTemTexto(campo)) {
+                registrarInteracao("clique no botão de envio");
+            }
+        }, true);
+
+        // Mantém suporte a interfaces que realmente enviam um formulário HTML.
         document.addEventListener("submit", (event) => {
             const formulario = event.target;
 
-            if (!(formulario instanceof HTMLFormElement)) {
-                return;
-            }
-
-            if (!formulario.querySelector(
-                'textarea, input, [contenteditable="true"]'
-            )) {
-                return;
-            }
+            if (!(formulario instanceof HTMLFormElement)) return;
 
             const campos = formulario.querySelectorAll(
-                'textarea, input, [contenteditable="true"]'
+                'textarea, input[type="text"], input:not([type]), [contenteditable="true"]'
             );
 
-            const temTexto = Array.from(campos).some(campo =>
-                campoTemTexto(campo)
-            );
-
-            if (temTexto) {
+            if (Array.from(campos).some(campo => campoTemTexto(campo))) {
                 registrarInteracao("envio de formulário");
             }
         }, true);
