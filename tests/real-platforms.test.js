@@ -167,7 +167,7 @@ test("interfaces reais: registra uma interação em cada uma das cinco IAs", {
           // Esse estado é da conta, não uma falha de detecção da extensão.
           if (provider.name === "Claude") {
             const claudePage = `${page.url()} ${await page.locator("body").innerText().catch(() => "")}`;
-            if (/\\/restricted\\/submit|Solicitar uma revisão|conta foi suspensa|account has been suspended/i.test(claudePage)) {
+            if (claudePage.includes("/restricted/submit") || /Solicitar uma revisão|conta foi suspensa|account has been suspended/i.test(claudePage)) {
               subtest.skip("Conta Claude suspensa/restrita; teste real não pode ser executado até a conta ser liberada.");
               return;
             }
